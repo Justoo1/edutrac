@@ -1,20 +1,21 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ReactNode } from "react";
-import CTA from "@/components/cta";
-import ReportAbuse from "@/components/report-abuse";
 import { notFound, redirect } from "next/navigation";
-import { getSiteData } from "@/lib/fetchers";
+import { getSchoolData } from "@/lib/fetchers";
 import { fontMapper } from "@/styles/fonts";
 import { Metadata } from "next";
+import SchoolHeader from "@/components/school/header";
+import SchoolFooter from "@/components/school/footer";
 
 export async function generateMetadata({
   params,
 }: {
-  params: { domain: string };
+  params: Promise<{ domain: string }>;
 }): Promise<Metadata | null> {
-  const domain = decodeURIComponent(params.domain);
-  const data = await getSiteData(domain);
+  const paramData = await params
+  const domain = decodeURIComponent(paramData.domain);
+  const data = await getSchoolData(domain);
   if (!data) {
     return null;
   }
@@ -43,29 +44,23 @@ export async function generateMetadata({
       title,
       description,
       images: [image],
-      creator: "@vercel",
+      creator: "@edutrac",
     },
     icons: [logo],
     metadataBase: new URL(`https://${domain}`),
-    // Optional: Set canonical URL to custom domain if it exists
-    // ...(params.domain.endsWith(`.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`) &&
-    //   data.customDomain && {
-    //     alternates: {
-    //       canonical: `https://${data.customDomain}`,
-    //     },
-    //   }),
   };
 }
 
-export default async function SiteLayout({
+export default async function SchoolLayout({
   params,
   children,
 }: {
-  params: { domain: string };
+  params: Promise<{ domain: string }>;
   children: ReactNode;
 }) {
-  const domain = decodeURIComponent(params.domain);
-  const data = await getSiteData(domain);
+  const paramData = await params
+  const domain = decodeURIComponent(paramData.domain);
+  const data = await getSchoolData(domain);
 
   if (!data) {
     notFound();
@@ -81,33 +76,17 @@ export default async function SiteLayout({
   }
 
   return (
-    <div className={fontMapper[data.font]}>
-      <div className="ease left-0 right-0 top-0 z-30 flex h-16 bg-white transition-all duration-150 dark:bg-black dark:text-white">
-        <div className="mx-auto flex h-full max-w-screen-xl items-center justify-center space-x-5 px-10 sm:px-20">
-          <Link href="/" className="flex items-center justify-center">
-            <div className="inline-block h-8 w-8 overflow-hidden rounded-full align-middle">
-              <Image
-                alt={data.name || ""}
-                height={40}
-                src={data.logo || ""}
-                width={40}
-              />
-            </div>
-            <span className="ml-3 inline-block truncate font-title font-medium">
-              {data.name}
-            </span>
-          </Link>
-        </div>
-      </div>
-
-      <div className="mt-20">{children}</div>
-
-      {domain == `demo.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}` ||
-      domain == `platformize.co` ? (
-        <CTA />
-      ) : (
-        <ReportAbuse />
-      )}
+    <div className={fontMapper[data.font || "font-cal"]}>
+      {/* School Header */}
+      <SchoolHeader school={data} domain={domain} />
+      
+      {/* Main Content */}
+      <main className="min-h-screen">
+        {children}
+      </main>
+      
+      {/* School Footer */}
+      <SchoolFooter school={data} domain={domain} />
     </div>
   );
 }

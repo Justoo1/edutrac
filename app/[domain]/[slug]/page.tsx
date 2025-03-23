@@ -1,26 +1,22 @@
 import { notFound } from "next/navigation";
-import { getPostData, getSiteData } from "@/lib/fetchers";
-import BlogCard from "@/components/blog-card";
+import { getContentBySlug, getSchoolData } from "@/lib/fetchers";
 import BlurImage from "@/components/blur-image";
-import MDX from "@/components/mdx";
 import { placeholderBlurhash, toDateString } from "@/lib/utils";
-import db from "@/lib/db";
-import { posts, sites } from "@/lib/schema";
-import { eq } from "drizzle-orm";
+import MDX from "@/components/mdx";
+import Link from "next/link";
+import { CalendarDays, User, ArrowLeft } from "lucide-react";
 
 export async function generateMetadata({
   params,
 }: {
-  params: { domain: string; slug: string };
+  params: Promise<{ domain: string; slug: string }>;
 }) {
-  const domain = decodeURIComponent(params.domain);
-  const slug = decodeURIComponent(params.slug);
+  const paramData = await params
+  const domain = decodeURIComponent(paramData.domain);
+  const slug = decodeURIComponent(paramData.slug);
 
-  const [data, siteData] = await Promise.all([
-    getPostData(domain, slug),
-    getSiteData(domain),
-  ]);
-  if (!data || !siteData) {
+  const data = await getContentBySlug(domain, slug);
+  if (!data) {
     return null;
   }
   const { title, description } = data;
@@ -36,141 +32,153 @@ export async function generateMetadata({
       card: "summary_large_image",
       title,
       description,
-      creator: "@vercel",
+      creator: "@edutrac",
     },
-    // Optional: Set canonical URL to custom domain if it exists
-    // ...(params.domain.endsWith(`.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`) &&
-    //   siteData.customDomain && {
-    //     alternates: {
-    //       canonical: `https://${siteData.customDomain}/${params.slug}`,
-    //     },
-    //   }),
   };
 }
 
-export async function generateStaticParams() {
-  const allPosts = await db
-    .select({
-      slug: posts.slug,
-      site: {
-        subdomain: sites.subdomain,
-        customDomain: sites.customDomain,
-      },
-    })
-    .from(posts)
-    .leftJoin(sites, eq(posts.siteId, sites.id))
-    .where(eq(sites.subdomain, "demo")); // feel free to remove this filter if you want to generate paths for all posts
-
-  const allPaths = allPosts
-    .flatMap(({ site, slug }) => [
-      site?.subdomain && {
-        domain: `${site.subdomain}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`,
-        slug,
-      },
-      site?.customDomain && {
-        domain: site.customDomain,
-        slug,
-      },
-    ])
-    .filter(Boolean);
-
-  return allPaths;
-}
-
-export default async function SitePostPage({
+export default async function SchoolContentPage({
   params,
 }: {
-  params: { domain: string; slug: string };
+  params: Promise<{ domain: string; slug: string }>;
 }) {
-  const domain = decodeURIComponent(params.domain);
-  const slug = decodeURIComponent(params.slug);
-  const data = await getPostData(domain, slug);
+  const paramData = await params
+  const domain = decodeURIComponent(paramData.domain);
+  const slug = decodeURIComponent(paramData.slug);
+  const data = await getContentBySlug(domain, slug);
 
   if (!data) {
     notFound();
   }
 
   return (
-    <>
-      <div className="flex flex-col items-center justify-center">
-        <div className="m-auto w-full text-center md:w-7/12">
-          <p className="m-auto my-5 w-10/12 text-sm font-light text-stone-500 md:text-base dark:text-stone-400">
-            {toDateString(data.createdAt)}
-          </p>
-          <h1 className="mb-10 font-title text-3xl font-bold text-stone-800 md:text-6xl dark:text-white">
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <Link
+          href={`/${domain}`}
+          className="flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to {data.school?.name || "Home"}
+        </Link>
+      </div>
+
+      <div className="bg-white shadow-sm rounded-lg overflow-hidden dark:bg-gray-800">
+        {/* Hero section with image if available */}
+        {data.image && (
+          <div className="relative h-72 w-full sm:h-96">
+            <BlurImage
+              alt={data.title || "Content image"}
+              blurDataURL={data.imageBlurhash || placeholderBlurhash}
+              className="h-full w-full object-cover"
+              height={600}
+              width={1200}
+              placeholder="blur"
+              src={data.image}
+              priority
+            />
+          </div>
+        )}
+
+        <div className="px-6 py-8 sm:px-10">
+          {/* Content type badge */}
+          <div className="mb-6 flex justify-between items-center">
+            <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${
+              data.contentType === "announcement" 
+                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" 
+                : data.contentType === "event"
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+            }`}>
+              {data.contentType.charAt(0).toUpperCase() + data.contentType.slice(1)}
+            </span>
+            
+            {/* Publication date */}
+            <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm">
+              <CalendarDays className="mr-2 h-4 w-4" />
+              {toDateString(data.publishDate || data.createdAt)}
+            </div>
+          </div>
+
+          {/* Title and description */}
+          <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl">
             {data.title}
           </h1>
-          <p className="text-md m-auto w-10/12 text-stone-600 md:text-lg dark:text-stone-400">
-            {data.description}
-          </p>
+          
+          {data.description && (
+            <p className="mb-8 text-xl text-gray-500 dark:text-gray-400">
+              {data.description}
+            </p>
+          )}
+
+          {/* Author info if available */}
+          {data.author && (
+            <div className="mb-8 flex items-center">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
+                {data.author.image ? (
+                  <BlurImage
+                    alt={data.author.name || "Author"}
+                    height={40}
+                    width={40}
+                    className="h-full w-full rounded-full object-cover"
+                    src={data.author.image}
+                  />
+                ) : (
+                  <User className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                )}
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {data.author.name || "Staff Member"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Published by school staff
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Main content */}
+          <div className="prose max-w-none dark:prose-invert">
+            {data.mdxSource ? (
+              <MDX source={data.mdxSource} />
+            ) : (
+              <div 
+                dangerouslySetInnerHTML={{ __html: data.content || '<p>No content available.</p>' }} 
+              />
+            )}
+          </div>
         </div>
-        <a
-          // if you are using Github OAuth, you can get rid of the Twitter option
-          href={
-            data.site?.user?.username
-              ? `https://twitter.com/${data.site.user.username}`
-              : `https://github.com/${data.site?.user?.gh_username}`
-          }
-          rel="noreferrer"
-          target="_blank"
-        >
-          <div className="my-8">
-            <div className="relative inline-block h-8 w-8 overflow-hidden rounded-full align-middle md:h-12 md:w-12">
-              {data.site?.user?.image ? (
-                <BlurImage
-                  alt={data.site?.user?.name ?? "User Avatar"}
-                  height={80}
-                  src={data.site.user.image}
-                  width={80}
-                />
-              ) : (
-                <div className="absolute flex h-full w-full select-none items-center justify-center bg-stone-100 text-4xl text-stone-500">
-                  ?
+      </div>
+
+      {/* Related content if available */}
+      {data.relatedContent && data.relatedContent.length > 0 && (
+        <div className="mt-16">
+          <h2 className="mb-6 text-2xl font-bold text-gray-900 dark:text-white">
+            Related {data.contentType === "announcement" ? "Announcements" : data.contentType === "event" ? "Events" : "Content"}
+          </h2>
+          
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {data.relatedContent.map((item) => (
+              <Link key={item.id} href={`/${domain}/${item.slug}`}>
+                <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
+                  <h3 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">
+                    {item.title}
+                  </h3>
+                  <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                    {toDateString(item.publishDate || item.createdAt)}
+                  </p>
+                  {item.description && (
+                    <p className="line-clamp-2 text-sm text-gray-600 dark:text-gray-300">
+                      {item.description}
+                    </p>
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="text-md ml-3 inline-block align-middle md:text-lg dark:text-white">
-              by <span className="font-semibold">{data.site?.user?.name}</span>
-            </div>
-          </div>
-        </a>
-      </div>
-      <div className="relative m-auto mb-10 h-80 w-full max-w-screen-lg overflow-hidden md:mb-20 md:h-150 md:w-5/6 md:rounded-2xl lg:w-2/3">
-        <BlurImage
-          alt={data.title ?? "Post image"}
-          width={1200}
-          height={630}
-          className="h-full w-full object-cover"
-          placeholder="blur"
-          blurDataURL={data.imageBlurhash ?? placeholderBlurhash}
-          src={data.image ?? "/placeholder.png"}
-        />
-      </div>
-
-      <MDX source={data.mdxSource} />
-
-      {data.adjacentPosts.length > 0 && (
-        <div className="relative mb-20 mt-10 sm:mt-20">
-          <div
-            className="absolute inset-0 flex items-center"
-            aria-hidden="true"
-          >
-            <div className="w-full border-t border-stone-300 dark:border-stone-700" />
-          </div>
-          <div className="relative flex justify-center">
-            <span className="bg-white px-2 text-sm text-stone-500 dark:bg-black dark:text-stone-400">
-              Continue Reading
-            </span>
+              </Link>
+            ))}
           </div>
         </div>
       )}
-      {data.adjacentPosts && (
-        <div className="mx-5 mb-20 grid max-w-screen-xl grid-cols-1 gap-x-4 gap-y-8 md:grid-cols-2 xl:mx-auto xl:grid-cols-3">
-          {data.adjacentPosts.map((data: any, index: number) => (
-            <BlogCard key={index} data={data} />
-          ))}
-        </div>
-      )}
-    </>
+    </div>
   );
 }

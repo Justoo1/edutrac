@@ -1,0 +1,1 @@
+ALTER TABLE "schools" ALTER COLUMN "message404" SET DEFAULT 'Sorry! This page doesn''t exist.';
