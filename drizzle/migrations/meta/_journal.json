@@ -15,6 +15,20 @@
       "when": 1742742367347,
       "tag": "0001_broad_logan",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1742810005051,
+      "tag": "0002_vengeful_zeigeist",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1742819862201,
+      "tag": "0003_wealthy_starbolt",
+      "breakpoints": true
     }
   ]
 }

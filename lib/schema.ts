@@ -22,6 +22,7 @@ export const users = pgTable("users", {
   name: text("name"),
   username: text("username"),
   gh_username: text("gh_username"),
+  password: text("password"),
   email: text("email").notNull().unique(),
   emailVerified: timestamp("emailVerified", { mode: "date" }),
   image: text("image"),
@@ -122,6 +123,7 @@ export const schools = pgTable(
     district: text("district"),
     address: text("address"),
     phone: text("phone"),
+    plan: text("plan").default("basic"),
     email: text("email"),
     establishedYear: integer("establishedYear"),
     createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
@@ -660,6 +662,17 @@ export const classRelations = relations(classes, ({ one, many }) => ({
   assessments: many(assessments),
 }));
 
+export const classSubjectRelations = relations(classSubjects, ({ one }) => ({
+  class: one(classes, { fields: [classSubjects.classId], references: [classes.id] }),
+  subject: one(subjects, { fields: [classSubjects.subjectId], references: [subjects.id] }),
+  teacher: one(staff, { fields: [classSubjects.teacherId], references: [staff.id] }),
+}));
+
+export const classEnrollmentRelations = relations(classEnrollments, ({ one }) => ({
+  class: one(classes, { fields: [classEnrollments.classId], references: [classes.id] }),
+  student: one(students, { fields: [classEnrollments.studentId], references: [students.id] }),
+}));
+
 export const schoolContentRelations = relations(schoolContent, ({ one }) => ({
   school: one(schools, { fields: [schoolContent.schoolId], references: [schools.id] }),
   author: one(users, { fields: [schoolContent.authorId], references: [users.id] }),
@@ -674,3 +687,10 @@ export type SelectClass = typeof classes.$inferSelect;
 export type SelectSubject = typeof subjects.$inferSelect;
 export type SelectAssessment = typeof assessments.$inferSelect;
 export type SelectFeeType = typeof feeTypes.$inferSelect;
+export type SelectFeePayment = typeof feePayments.$inferSelect;
+
+export const feePaymentRelations = relations(feePayments, ({ one }) => ({
+  student: one(students, { fields: [feePayments.studentId], references: [students.id] }),
+  feeType: one(feeTypes, { fields: [feePayments.feeTypeId], references: [feeTypes.id] }),
+  recordedBy: one(staff, { fields: [feePayments.recordedBy], references: [staff.id] }),
+}));

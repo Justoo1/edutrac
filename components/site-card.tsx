@@ -1,15 +1,15 @@
 import BlurImage from "@/components/blur-image";
-import type { SelectSite } from "@/lib/schema";
+import type { SelectSchool } from "@/lib/schema";
 import { placeholderBlurhash, random } from "@/lib/utils";
 import { BarChart, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
-export default function SiteCard({ data }: { data: SelectSite }) {
+export default function SiteCard({ data }: { data: SelectSchool }) {
   const url = `${data.subdomain}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`;
   return (
-    <div className="relative rounded-lg border border-stone-200 pb-10 shadow-md transition-all hover:shadow-xl dark:border-stone-700 dark:hover:border-white">
+    <div className="relative rounded-lg border border-stone-200 pb-10 shadow-md transition-all hover:shadow-xl dark:border-stone-700 dark:hover:border-white w-72">
       <Link
-        href={`/site/${data.id}`}
+        href={`/school/${data.id}`}
         className="flex flex-col overflow-hidden rounded-lg"
       >
         <BlurImage
@@ -41,10 +41,10 @@ export default function SiteCard({ data }: { data: SelectSite }) {
           rel="noreferrer"
           className="truncate rounded-md bg-stone-100 px-2 py-1 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-200 dark:bg-stone-800 dark:text-stone-400 dark:hover:bg-stone-700"
         >
-          {url} ↗
+          {url} ↗f
         </a>
         <Link
-          href={`/site/${data.id}/analytics`}
+          href={`/school/${data.id}/analytics`}
           className="flex items-center rounded-md bg-green-100 px-2 py-1 text-sm font-medium text-green-600 transition-colors hover:bg-green-200 dark:bg-green-900 dark:bg-opacity-50 dark:text-green-400 dark:hover:bg-green-800 dark:hover:bg-opacity-50"
         >
           <BarChart height={16} />

@@ -12,6 +12,7 @@ export async function generateMetadata({
 }) {
   const paramData = await params
   const domain = decodeURIComponent(paramData.domain);
+  
   const data = await getSchoolData(domain);
   if (!data) {
     return null;
@@ -54,6 +55,7 @@ export default async function SchoolHomePage({
   params: Promise<{ domain: string }>;
 }) {
   const paramData = await params
+  console.log({paramData})
   const domain = decodeURIComponent(paramData.domain);
   const [schoolData, announcements] = await Promise.all([
     getSchoolData(domain),
@@ -91,7 +93,7 @@ export default async function SchoolHomePage({
       </div>
 
       {/* Quick Links */}
-      <div className="bg-blue-600 text-white py-4">
+      {/* <div className="bg-blue-600 text-white py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-center items-center md:space-x-8 space-y-2 md:space-y-0">
             <Link href="/academics" className="hover:underline font-medium">
@@ -117,7 +119,7 @@ export default async function SchoolHomePage({
             </Link>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Main Content */}
       <div className="flex-grow py-12">
@@ -332,7 +334,7 @@ export default async function SchoolHomePage({
       </div>
 
       {/* Footer with school-specific info */}
-      <footer className="bg-gray-900 text-white py-12">
+      {/* <footer className="bg-gray-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
@@ -395,7 +397,7 @@ export default async function SchoolHomePage({
             <p className="text-gray-400 mt-4 md:mt-0">Powered by <a href="https://edutrac.com" className="hover:text-white">EduTrac</a></p>
           </div>
         </div>
-      </footer>
+      </footer> */}
     </div>
   );
 }

@@ -1,26 +1,51 @@
 import { getServerSession, type NextAuthOptions } from "next-auth";
-import GitHubProvider from "next-auth/providers/github";
+import CredentialsProvider from "next-auth/providers/credentials";
 import db from "./db";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { Adapter } from "next-auth/adapters";
 import { accounts, sessions, users, verificationTokens } from "./schema";
+import { eq } from "drizzle-orm";
+import { hash, compare } from "bcryptjs";
 
 const VERCEL_DEPLOYMENT = !!process.env.VERCEL_URL;
+
 export const authOptions: NextAuthOptions = {
   providers: [
-    GitHubProvider({
-      clientId: process.env.AUTH_GITHUB_ID as string,
-      clientSecret: process.env.AUTH_GITHUB_SECRET as string,
-      profile(profile) {
-        return {
-          id: profile.id.toString(),
-          name: profile.name || profile.login,
-          gh_username: profile.login,
-          email: profile.email,
-          image: profile.avatar_url,
-        };
+    CredentialsProvider({
+      name: "Email",
+      credentials: {
+        email: { label: "Email", type: "email", placeholder: "example@school.com" },
+        password: { label: "Password", type: "password" }
       },
-    }),
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
+
+        const user = await db.query.users.findFirst({
+          where: eq(users.email, credentials.email)
+        });
+
+        if (!user || !user.password) {
+          return null;
+        }
+
+        const isPasswordValid = await compare(credentials.password, user.password);
+
+        if (!isPasswordValid) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          username: user.username,
+          image: user.image,
+          role: user.role
+        };
+      }
+    })
   ],
   pages: {
     signIn: `/login`,
@@ -62,7 +87,9 @@ export const authOptions: NextAuthOptions = {
         // @ts-expect-error
         id: token.sub,
         // @ts-expect-error
-        username: token?.user?.username || token?.user?.gh_username,
+        role: token?.user?.role || "user",
+        // @ts-expect-error
+        username: token?.user?.username,
       };
       return session;
     },
@@ -77,8 +104,42 @@ export function getSession() {
       username: string;
       email: string;
       image: string;
+      role: string;
     };
   } | null>;
+}
+
+// Helper function to create a new user with hashed password
+export async function createUser(
+  email: string,
+  password: string,
+  name: string,
+  role: string = "user"
+) {
+  // Check if user already exists
+  const existingUser = await db.query.users.findFirst({
+    where: eq(users.email, email)
+  });
+
+  if (existingUser) {
+    throw new Error("User already exists with this email");
+  }
+
+  // Hash the password
+  const hashedPassword = await hash(password, 10);
+
+  // Create the user
+  const [newUser] = await db
+    .insert(users)
+    .values({
+      email,
+      password: hashedPassword,
+      name,
+      role,
+    })
+    .returning();
+
+  return newUser;
 }
 
 export function withSiteAuth(action: any) {
@@ -94,11 +155,11 @@ export function withSiteAuth(action: any) {
       };
     }
 
-    const site = await db.query.sites.findFirst({
-      where: (sites, { eq }) => eq(sites.id, siteId),
+    const site = await db.query.schools.findFirst({
+      where: (schools, { eq }) => eq(schools.id, siteId),
     });
 
-    if (!site || site.userId !== session.user.id) {
+    if (!site || site.adminId !== session.user.id) {
       return {
         error: "Not authorized",
       };
@@ -121,19 +182,126 @@ export function withPostAuth(action: any) {
       };
     }
 
-    const post = await db.query.posts.findFirst({
+    const post = await db.query.schoolContent.findFirst({
       where: (posts, { eq }) => eq(posts.id, postId),
       with: {
-        site: true,
+        school: true,
       },
     });
 
-    if (!post || post.userId !== session.user.id) {
+    if (!post || post.authorId !== session.user.id) {
       return {
-        error: "Post not found",
+        error: "Content not found",
       };
     }
 
     return action(formData, post, key);
+  };
+}
+
+export function withAdminAuth(action: any) {
+  return async (formData: FormData | null, id?: string) => {
+    const session = await getSession();
+    if (!session?.user.id) {
+      return {
+        error: "Not authenticated",
+      };
+    }
+
+    if (session.user.role !== "admin") {
+      return {
+        error: "Not authorized - Admin access required",
+      };
+    }
+
+    return action(formData, id, session);
+  };
+}
+
+export function withSchoolAuth(action: any) {
+  return async (formData: FormData | null, school: any, key: string | null) => {
+    const session = await getSession();
+    if (!session?.user.id) {
+      return {
+        error: "Not authenticated",
+      };
+    }
+
+    if (school.adminId !== session.user.id) {
+      return {
+        error: "Not authorized",
+      };
+    }
+
+    return action(formData, school, key);
+  };
+}
+
+export function withStudentAuth(action: any) {
+  return async (formData: FormData | null, student: any, key: string | null) => {
+    const session = await getSession();
+    if (!session?.user.id) {
+      return {
+        error: "Not authenticated",
+      };
+    }
+
+    const school = await db.query.schools.findFirst({
+      where: (schools, { eq }) => eq(schools.adminId, session.user.id),
+    });
+
+    if (!school || student.schoolId !== school.id) {
+      return {
+        error: "Not authorized",
+      };
+    }
+
+    return action(formData, student, key);
+  };
+}
+
+export function withStaffAuth(action: any) {
+  return async (formData: FormData | null, staffMember: any, key: string | null) => {
+    const session = await getSession();
+    if (!session?.user.id) {
+      return {
+        error: "Not authenticated",
+      };
+    }
+
+    const school = await db.query.schools.findFirst({
+      where: (schools, { eq }) => eq(schools.adminId, session.user.id),
+    });
+
+    if (!school || staffMember.schoolId !== school.id) {
+      return {
+        error: "Not authorized",
+      };
+    }
+
+    return action(formData, staffMember, key);
+  };
+}
+
+export function withClassAuth(action: any) {
+  return async (formData: FormData | null, classData: any, key: string | null) => {
+    const session = await getSession();
+    if (!session?.user.id) {
+      return {
+        error: "Not authenticated",
+      };
+    }
+
+    const school = await db.query.schools.findFirst({
+      where: (schools, { eq }) => eq(schools.adminId, session.user.id),
+    });
+
+    if (!school || classData.schoolId !== school.id) {
+      return {
+        error: "Not authorized",
+      };
+    }
+
+    return action(formData, classData, key);
   };
 }

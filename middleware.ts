@@ -38,27 +38,36 @@ export default async function middleware(req: NextRequest) {
     searchParams.length > 0 ? `?${searchParams}` : ""
   }`;
 
-  // rewrites for app dashboard pages
-  if (hostname === `app.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`) {
+  // Log for debugging
+  console.log("Middleware processing - Hostname:", hostname, "Path:", path);
+
+  // rewrites for app dashboard pages - handles both app.edutrac.com and app.localhost:3000
+  if (hostname === `app.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}` || hostname === "app.localhost:3000") {
     const session = await getToken({ req });
-    if (!session && !path.startsWith('/auth/login')) {
-      return NextResponse.redirect(new URL("/auth/login", req.url));
-    } else if (session && path.startsWith('/auth/login')) {
-      return NextResponse.redirect(new URL("/", req.url));
+    if (!session && !path.startsWith('/login') && !path.startsWith('/register')) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    } else if (session && (path === '/login' || path === '/register')) {
+      return NextResponse.redirect(new URL("/dashboard", req.url));
     }
-    return NextResponse.rewrite(new URL(`/app${path}`, req.url));
+    
+    // Modify the rewrite path to use the correct app route
+    const newPath = path === '/dashboard' ? '/app/dashboard' : `/app${path}`;
+    console.log("App dashboard route - rewriting to:", newPath);
+    return NextResponse.rewrite(new URL(newPath, req.url));
   }
 
-  // Special case for root domain
-  if (hostname === process.env.NEXT_PUBLIC_ROOT_DOMAIN || hostname === "edutrac.com") {
-    console.log("Redirecting to home page:", `/home${path === "/" ? "" : path}`);
-    return NextResponse.rewrite(new URL(`/home${path}`, req.url));
+  // Special case for root domain - this fixes your home page issue
+  if (
+    hostname === process.env.NEXT_PUBLIC_ROOT_DOMAIN ||
+    hostname === "localhost:3000" ||
+    hostname === "edutrac.com"
+  ) {
+    console.log("Root domain - rewriting to:", `/home${path === "/" ? "" : path}`);
+    return NextResponse.rewrite(new URL(`/home${path === "/" ? "" : path}`, req.url));
   }
 
-  // Add logging to see what hostname and path are being processed
-  console.log("Hostname:", hostname);
-  console.log("Path:", path);
-  
-  // Rewrite everything else to /[domain]/[slug] for school-specific pages
-  return NextResponse.rewrite(new URL(`/domain${path}`, req.url));
+  // For subdomains like school.edutrac.com or school.localhost:3000 - rewrite to domain route
+  const subdomain = hostname.split('.')[0];
+  console.log("School domain - rewriting to:", `/${subdomain}${path}`);
+  return NextResponse.rewrite(new URL(`/${subdomain}${path}`, req.url));
 }

@@ -1,5 +1,5 @@
 import Form from "@/components/form";
-import { updateSite } from "@/lib/actions";
+import { updateSchool } from "@/lib/actions";
 import DeleteSiteForm from "@/components/form/delete-site-form";
 import db from "@/lib/db";
 
@@ -8,7 +8,7 @@ export default async function SiteSettingsIndex({
 }: {
   params: { id: string };
 }) {
-  const data = await db.query.sites.findFirst({
+  const data = await db.query.schools.findFirst({
     where: (sites, { eq }) => eq(sites.id, decodeURIComponent(params.id)),
   });
 

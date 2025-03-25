@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { createSite } from "@/lib/actions";
+import { createSchool } from "@/lib/actions";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { cn } from "@/lib/utils";
@@ -33,7 +33,7 @@ export default function CreateSiteModal() {
   return (
     <form
       action={async (data: FormData) =>
-        createSite(data).then((res: any) => {
+        createSchool(data).then((res: any) => {
           if (res.error) {
             toast.error(res.error);
           } else {

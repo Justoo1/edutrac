@@ -21,16 +21,14 @@ async function getMdxSource(postContents: string) {
 }
 
 export async function getSchoolData(domain: string) {
-  const subdomain = domain.endsWith(`.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`)
-    ? domain.replace(`.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`, "")
-    : null;
-
+  // The domain parameter is already the subdomain from the middleware
+  // No need to check for .edutrac.com suffix since middleware handles that
+  console.log("getSchoolData received domain:", domain);
+  
   return await unstable_cache(
     async () => {
       return await db.query.schools.findFirst({
-        where: subdomain
-          ? eq(schools.subdomain, subdomain)
-          : eq(schools.customDomain, domain),
+        where: eq(schools.subdomain, domain),
         with: {
           admin: true,
         },

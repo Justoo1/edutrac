@@ -13,22 +13,24 @@ import {
   DollarSign, 
   Settings, 
   LogOut,
-  School
+  School,
+  Globe
 } from "lucide-react";
 
 export default function DashboardNav() {
   const pathname = usePathname();
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Students', href: '/dashboard/students', icon: Users },
-    { name: 'Staff', href: '/dashboard/staff', icon: School },
-    { name: 'Classes', href: '/dashboard/classes', icon: GraduationCap },
-    { name: 'Attendance', href: '/dashboard/attendance', icon: Calendar },
-    { name: 'Academics', href: '/dashboard/academics', icon: BookOpen },
-    { name: 'Assessments', href: '/dashboard/assessments', icon: FileText },
-    { name: 'Finances', href: '/dashboard/finances', icon: DollarSign },
-    { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Students', href: '/students', icon: Users },
+    { name: 'Staff', href: '/staff', icon: School },
+    { name: 'Classes', href: '/classes', icon: GraduationCap },
+    { name: 'Attendance', href: 'attendance', icon: Calendar },
+    { name: 'Academics', href: '/academics', icon: BookOpen },
+    { name: 'Assessments', href: '/assessments', icon: FileText },
+    { name: 'Finances', href: '/finances', icon: DollarSign },
+    { name: 'Website', href: '/schools', icon: Globe },
+    { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
   return (

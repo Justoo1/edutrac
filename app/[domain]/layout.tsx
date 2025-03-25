@@ -60,6 +60,7 @@ export default async function SchoolLayout({
 }) {
   const paramData = await params
   const domain = decodeURIComponent(paramData.domain);
+  console.log({"domain":paramData.domain})
   const data = await getSchoolData(domain);
 
   if (!data) {

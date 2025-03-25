@@ -17,13 +17,13 @@ export default function SchoolHeader({
 
   // Define navigation links
   const navigation = [
-    { name: 'Home', href: `/${domain}` },
-    { name: 'About', href: `/${domain}/about` },
-    { name: 'Academics', href: `/${domain}/academics` },
-    { name: 'Admissions', href: `/${domain}/admissions` },
-    { name: 'Faculty', href: `/${domain}/faculty` },
-    { name: 'Calendar', href: `/${domain}/calendar` },
-    { name: 'Contact', href: `/${domain}/contact` },
+    { name: 'Home', href: `/` },
+    { name: 'About', href: `/about` },
+    { name: 'Academics', href: `/academics` },
+    { name: 'Admissions', href: `/admissions` },
+    { name: 'Faculty', href: `/faculty` },
+    { name: 'Calendar', href: `/calendar` },
+    { name: 'Contact', href: `/contact` },
   ];
 
   return (
@@ -32,7 +32,7 @@ export default function SchoolHeader({
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between">
           <div className="flex items-center">
-            <Link href={`/${domain}`} className="flex items-center">
+            <Link href={`/`} className="flex items-center">
               <div className="h-12 w-12 overflow-hidden rounded-full">
                 <Image
                   src={school.logo || "/default-school-logo.png"}
