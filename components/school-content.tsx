@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { RichTextContent } from "./rich-text-content";
 
 interface SchoolContentItem {
   id: string;
@@ -48,7 +49,7 @@ export function SchoolContent({ schoolId }: SchoolContentProps) {
   }
 
   if (content.length === 0) {
-    return <div>No content available</div>;
+    return <div className="text-yellow-100 animate-wiggle">No content available</div>;
   }
 
   return (
@@ -73,7 +74,7 @@ export function SchoolContent({ schoolId }: SchoolContentProps) {
                 {item.contentType}
               </Badge>
               <div className="prose prose-sm max-w-none">
-                {item.content}
+                <RichTextContent content={item.content} />
               </div>
             </div>
           </CardContent>

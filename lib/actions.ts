@@ -105,7 +105,7 @@ export const createSchool = async (formData: FormData) => {
 export const updateSchool = withSchoolAuth(
   async (formData: FormData, school: SelectSchool, key: string) => {
     const value = formData.get(key) as string;
-
+    console.log(school)
     try {
       let response;
 

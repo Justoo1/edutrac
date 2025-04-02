@@ -50,7 +50,7 @@ export default async function AllSites() {
     <div className="flex max-w-screen-xl flex-col space-y-12 p-8">
       <div className="flex flex-col space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="font-cal text-3xl font-bold dark:text-white">
+          <h1 className="font-cal text-3xl text-yellow-500 font-bold dark:text-white">
             All Sites
           </h1>
           {schoolsWithPlanInfo.length > 0 ? (
@@ -75,9 +75,9 @@ export default async function AllSites() {
               );
             })[0]
           ) : (
-            <div className="text-sm text-red-500">
-              <p>Please create a school first</p>
-            </div>
+            <CreateSiteButton>
+              <CreateSiteModal />
+            </CreateSiteButton>
           )}
         </div>
         <Suspense

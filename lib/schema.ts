@@ -126,6 +126,14 @@ export const schools = pgTable(
     plan: text("plan").default("basic"),
     email: text("email"),
     establishedYear: integer("establishedYear"),
+    primaryColor: text("primaryColor").default("#000000"),
+    secondaryColor: text("secondaryColor").default("#ffffff"),
+    accentColor: text("accentColor").default("#0066cc"),
+    layout: text("layout").default("classic"),
+    customCSS: text("customCSS"),
+    footerContent: text("footerContent"),
+    welcomeMessage: text("welcomeMessage"),
+    keywords: text("keywords"),
     createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
     updatedAt: timestamp("updatedAt", { mode: "date" })
       .notNull()

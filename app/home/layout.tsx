@@ -1,9 +1,11 @@
 import "@/styles/globals.css";
-import { cal, inter } from "@/styles/fonts";
-import { Analytics } from "@vercel/analytics/react";
-import { Providers } from "./providers";
+// import { cal, inter } from "@/styles/fonts";
+// import { Analytics } from "@vercel/analytics/react";
+// import { Providers } from "./providers";
 import { Metadata } from "next";
-import { cn } from "@/lib/utils";
+// import { cn } from "@/lib/utils";
+import HomeFooter from "@/components/home/HomeFooter";
+import HomeHeader from "@/components/home/HomeHeader";
 
 const title =
   "Platforms Starter Kit – The all-in-one starter kit for building multi-tenant applications.";
@@ -30,19 +32,16 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://vercel.pub"),
 };
 
-export default function RootLayout({
+export default function HomeLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={cn([cal.variable, inter.variable, "bg-gradient-to-tr from-blue-950 to-blue-900"])}>
-        <Providers>
+      <div className="flex flex-col h-full bg-gradient-to-tr from-blue-950 to-blue-900">
+          <HomeHeader />
           {children}
-          <Analytics />
-        </Providers>
-      </body>
-    </html>
+          <HomeFooter />
+      </div>
   );
 }

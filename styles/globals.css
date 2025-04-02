@@ -2,6 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Main blue gradient backgrounds */
+.bg-edu-gradient-primary {
+  background: linear-gradient(135deg, #1e3a8a 0%, #3d1eee98 100%);
+}
+
+.bg-edu-gradient-light {
+  background: linear-gradient(135deg, #3b82f6 0%, #93c5fd 100%);
+}
+
+.bg-edu-gradient-dark {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+}
+
+/* Animated gradient for hero sections */
+.bg-edu-gradient-animated {
+  background: linear-gradient(-45deg, #1e40af, #3b82f6, #1e3a8a, #60a5fa);
+  background-size: 400% 400%;
+  animation: gradient 15s ease infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Gradient text */
+.text-edu-gradient {
+  background: linear-gradient(to right, #1e3a8a, #60a5fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Gradient borders */
+.border-edu-gradient {
+  border-image: linear-gradient(to right, #1e3a8a, #60a5fa) 1;
+}
+
+/* Gradient overlays for images */
+.image-edu-overlay::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(0deg, rgba(30, 58, 138, 0.7) 0%, rgba(59, 130, 246, 0.4) 100%);
+}
+
+/* Glass morphism panel with blue tint */
+.bg-edu-glass {
+  background: rgba(30, 64, 175, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+/* Mesh gradient for more complex backgrounds */
+.bg-edu-mesh {
+  background-color: #3b82f6;
+  background-image: radial-gradient(at 97% 21%, #1e3a8a 0px, transparent 50%),
+                    radial-gradient(at 52% 99%, #60a5fa 0px, transparent 50%),
+                    radial-gradient(at 10% 29%, #1e3a8a 0px, transparent 50%),
+                    radial-gradient(at 97% 96%, #3b82f6 0px, transparent 50%),
+                    radial-gradient(at 33% 50%, #1e40af 0px, transparent 50%),
+                    radial-gradient(at 79% 53%, #60a5fa 0px, transparent 50%);
+}
+
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #000000;

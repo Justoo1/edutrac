@@ -7,29 +7,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { Menu, X, Bell, Search } from "lucide-react";
 
-export default function DashboardHeader() {
+export default function DashboardHeader({ title = "Dashboard" }: { title?: string }) {
   const { data: session } = useSession();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  let title = "Dashboard";
-  if (pathname.includes("/students")) {
-    title = "Students";
-  } else if (pathname.includes("/staff")) {
-    title = "Staff";
-  } else if (pathname.includes("/classes")) {
-    title = "Classes";
-  } else if (pathname.includes("/academics")) {
-    title = "Academics";
-  } else if (pathname.includes("/attendance")) {
-    title = "Attendance";
-  } else if (pathname.includes("/assessments")) {
-    title = "Assessments";
-  } else if (pathname.includes("/finances")) {
-    title = "Financial Management";
-  } else if (pathname.includes("/settings")) {
-    title = "Settings";
-  }
 
   return (
     <header className="bg-white border-b border-gray-200 dark:border-gray-700 dark:bg-gray-800">

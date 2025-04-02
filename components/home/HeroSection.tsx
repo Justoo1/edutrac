@@ -4,7 +4,7 @@ import Image from "next/image";
 
 export default function HeroSection() {
   return (
-    <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+    <div className="w-full bg-edu-gradient-animated text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
         <div className="md:flex md:items-center md:justify-between">
           <div className="md:w-1/2">
@@ -17,10 +17,10 @@ export default function HeroSection() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link 
-                href={`${process.env.NEXT_PUBLIC_APP_URL}/login`} 
+                href={`${process.env.NEXT_PUBLIC_APP_URL}/register`} 
                 className="px-8 py-3 bg-white text-blue-700 font-medium rounded-lg text-center hover:bg-gray-100 transition-colors"
               >
-                Login
+                Get Started
               </Link>
               <Link 
                 href="/contact" 
@@ -59,7 +59,7 @@ export default function HeroSection() {
       {/* Wave separator */}
       <div className="bg-white">
         <svg
-          className="w-full h-16 text-blue-600 fill-current"
+          className="w-full h-16 text-blue-600 fill-current "
           viewBox="0 0 1440 72"
           xmlns="http://www.w3.org/2000/svg"
           preserveAspectRatio="none"

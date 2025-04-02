@@ -81,24 +81,24 @@ export default function Nav({ children }: { children: ReactNode }) {
       return [
         {
           name: "Back to All Sites",
-          href: "/sites",
+          href: "/schools",
           icon: <ArrowLeft width={18} />,
         },
         {
           name: "Posts",
-          href: `/site/${id}`,
+          href: `/school/${id}`,
           isActive: segments.length === 2,
           icon: <Newspaper width={18} />,
         },
         {
           name: "Analytics",
-          href: `/site/${id}/analytics`,
+          href: `/school/${id}/analytics`,
           isActive: segments.includes("analytics"),
           icon: <BarChart3 width={18} />,
         },
         {
           name: "Settings",
-          href: `/site/${id}/settings`,
+          href: `/school/${id}/settings`,
           isActive: segments.includes("settings"),
           icon: <Settings width={18} />,
         },
@@ -107,7 +107,7 @@ export default function Nav({ children }: { children: ReactNode }) {
       return [
         {
           name: "Back to All Posts",
-          href: siteId ? `/site/${siteId}` : "/sites",
+          href: siteId ? `/school/${siteId}` : "/schools",
           icon: <ArrowLeft width={18} />,
         },
         {
@@ -133,7 +133,7 @@ export default function Nav({ children }: { children: ReactNode }) {
       },
       {
         name: "Sites",
-        href: "/sites",
+        href: "/schools",
         isActive: segments[0] === "sites",
         icon: <Globe width={18} />,
       },

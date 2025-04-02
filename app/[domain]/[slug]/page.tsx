@@ -9,6 +9,7 @@ import db from "@/lib/db";
 import { schoolContent } from "@/lib/schema";
 import { eq, and } from "drizzle-orm";
 import { SanitizedContent } from "@/components/sanitized-content";
+import { RichTextContent } from "@/components/rich-text-content";
 
 export async function generateMetadata({
   params,
@@ -68,7 +69,7 @@ export default async function SchoolContentPage({
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-4">{content.title}</h1>
-      <SanitizedContent content={content.content} />
+      <RichTextContent content={content.content!} />
     </div>
   );
 }

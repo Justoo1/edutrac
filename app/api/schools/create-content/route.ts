@@ -4,7 +4,12 @@ import db from "@/lib/db";
 import { schoolContent, schools } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import { revalidateTag } from "next/cache";
-import DOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
+import createDOMPurify from 'dompurify';
+
+// Create DOMPurify instance for server-side use
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
 
 export async function POST(req: Request) {
   try {

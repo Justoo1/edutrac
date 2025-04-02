@@ -25,14 +25,15 @@ interface PlanLimits {
 export default async function SchoolContentPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const session = await getSession();
   if (!session) {
     redirect("/login");
   }
 
-  const schoolId = decodeURIComponent(params.id);
+  const { id } = await params
+  const schoolId = decodeURIComponent(id);
   const data = await db.query.schools.findFirst({
     where: (schools, { eq }) => eq(schools.id, schoolId),
     with: {
@@ -69,11 +70,11 @@ export default async function SchoolContentPage({
         <div className="flex flex-col items-center space-y-2 sm:flex-row sm:space-x-4 sm:space-y-0">
           <div className="flex items-center space-x-4">
             <Link href="/dashboard">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="text-yellow-500 hover:bg-yellow-500 hover:text-blue-900">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
-            <h1 className="w-60 truncate font-cal text-xl font-bold sm:w-auto sm:text-3xl dark:text-white">
+            <h1 className="w-60 truncate font-cal text-xl font-bold sm:w-auto sm:text-3xl text-yellow-500 dark:text-white">
               {data.name}
             </h1>
           </div>
@@ -97,7 +98,8 @@ export default async function SchoolContentPage({
               Settings
             </Button>
           </Link>
-          <CreateSchoolContentButton schoolId={schoolId} />
+          {/* <CreateSchoolContentButton schoolId={schoolId} /> */}
+          <Link href={`/school/${schoolId}/create`} type="button" className="hover:text-yellow-600 bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">Create Content</Link>
         </div>
       </div>
 
@@ -135,8 +137,8 @@ export default async function SchoolContentPage({
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">School Content</h2>
-          <Badge variant="outline">Announcements & Pages</Badge>
+          <h2 className="text-xl font-semibold text-yellow-500">School Content</h2>
+          <Badge variant="outline" className="text-yellow-500">Announcements & Pages</Badge>
         </div>
         <SchoolContent schoolId={schoolId} />
       </div>

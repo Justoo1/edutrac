@@ -7,13 +7,10 @@ import GhanaContext from '@/components/home/GhanaContext';
 import PricingSection from '@/components/home/PricingSection';
 import FAQSection from '@/components/home/FAQSection';
 import CTASection from '@/components/home/CTASection';
-import HomeFooter from '@/components/home/HomeFooter';
-import HomeHeader from '@/components/home/HomeHeader';
 
-export default function HomePage() {
+export default async function HomePage() {
   return (
     <div className="flex flex-col items-center min-h-screen">
-      <HomeHeader />
       <HeroSection />
       <VideoDemo />
       <FeaturesSection />
@@ -22,7 +19,6 @@ export default function HomePage() {
       <PricingSection />
       <FAQSection />
       <CTASection />
-      <HomeFooter />
     </div>
   );
 }

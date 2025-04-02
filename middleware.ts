@@ -44,19 +44,21 @@ export default async function middleware(req: NextRequest) {
   // rewrites for app dashboard pages - handles both app.edutrac.com and app.localhost:3000
   if (hostname === `app.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}` || hostname === "app.localhost:3000") {
     const session = await getToken({ req });
+    // redirect user to login if they have not login and they are not navigating to either lgin or register page
     if (!session && !path.startsWith('/login') && !path.startsWith('/register')) {
       return NextResponse.redirect(new URL("/login", req.url));
+      // redirect to dashboard if they have login and wants to nagivate to lgoin/register page
     } else if (session && (path === '/login' || path === '/register')) {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
     
     // Modify the rewrite path to use the correct app route
-    const newPath = path === '/dashboard' ? '/app/dashboard' : `/app${path}`;
+    const newPath = path === '/dashboard' ? '/app/' : `/app${path}`;
     console.log("App dashboard route - rewriting to:", newPath);
     return NextResponse.rewrite(new URL(newPath, req.url));
   }
 
-  // Special case for root domain - this fixes your home page issue
+  // Special case for root domain - this fixes the home page issue
   if (
     hostname === process.env.NEXT_PUBLIC_ROOT_DOMAIN ||
     hostname === "localhost:3000" ||

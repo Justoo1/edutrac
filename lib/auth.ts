@@ -3,7 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import db from "./db";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { Adapter } from "next-auth/adapters";
-import { accounts, sessions, users, verificationTokens } from "./schema";
+import { accounts, SelectSchool, sessions, users, verificationTokens } from "./schema";
 import { eq } from "drizzle-orm";
 import { hash, compare } from "bcryptjs";
 
@@ -219,15 +219,21 @@ export function withAdminAuth(action: any) {
 }
 
 export function withSchoolAuth(action: any) {
-  return async (formData: FormData | null, school: any, key: string | null) => {
+  return async (formData: FormData | null, school: SelectSchool, key: string | null) => {
     const session = await getSession();
+    console.log({"User":session?.user})
     if (!session?.user.id) {
       return {
         error: "Not authenticated",
       };
     }
-
+    console.log({"TYPE OF =": typeof(school)})
+    console.log({"school ID": school.id})
+    console.log({school})
+    console.log({key})
+    console.log({formData})
     if (school.adminId !== session.user.id) {
+      console.log({"School adminID": school.adminId, "userId": session.user.id})
       return {
         error: "Not authorized",
       };
