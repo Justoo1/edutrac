@@ -1,6 +1,9 @@
 import { clsx, type ClassValue } from "clsx";
 import { PgSelect } from "drizzle-orm/pg-core";
 import { twMerge } from "tailwind-merge";
+import { classEnrollments } from "./schema";
+import { eq, and } from "drizzle-orm";
+import db from "./db";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -71,4 +74,39 @@ export function stripUndefined<T>(obj: T): Pick<T, NonNullableProps<T>> {
   const result = {} as T;
   for (const key in obj) if (obj[key] !== undefined) result[key] = obj[key];
   return result;
+}
+
+export const formatDate = (dateString?: string | Date | null) => {
+  if (!dateString) return 'N/A';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch (error) {
+    return 'Invalid Date';
+  }
+};
+
+/**
+ * Gets the current enrollment count for a class
+ * @param classId - The ID of the class to check
+ * @returns The number of active enrollments in the class
+ */
+export async function getActiveEnrollmentCount(classId: string): Promise<number> {
+  try {
+    const enrollments = await db.query.classEnrollments.findMany({
+      where: and(
+        eq(classEnrollments.classId, classId),
+        eq(classEnrollments.status, "active")
+      ),
+    });
+    
+    return enrollments.length;
+  } catch (error) {
+    console.error("Error getting enrollment count:", error);
+    return 0;
+  }
 }

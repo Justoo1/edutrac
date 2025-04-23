@@ -42,7 +42,8 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           username: user.username,
           image: user.image,
-          role: user.role
+          role: user.role,
+          schoolId: user.schoolId,
         };
       }
     })
@@ -89,6 +90,8 @@ export const authOptions: NextAuthOptions = {
         // @ts-expect-error
         role: token?.user?.role || "user",
         // @ts-expect-error
+        schoolId: token?.user?.schoolId || "",
+        // @ts-expect-error
         username: token?.user?.username,
       };
       return session;
@@ -105,6 +108,7 @@ export function getSession() {
       email: string;
       image: string;
       role: string;
+      schoolId: string;
     };
   } | null>;
 }
@@ -114,7 +118,8 @@ export async function createUser(
   email: string,
   password: string,
   name: string,
-  role: string = "user"
+  role: string = "user",
+  schoolId: string = ""
 ) {
   // Check if user already exists
   const existingUser = await db.query.users.findFirst({
@@ -136,6 +141,7 @@ export async function createUser(
       password: hashedPassword,
       name,
       role,
+      schoolId
     })
     .returning();
 
@@ -227,11 +233,7 @@ export function withSchoolAuth(action: any) {
         error: "Not authenticated",
       };
     }
-    console.log({"TYPE OF =": typeof(school)})
-    console.log({"school ID": school.id})
-    console.log({school})
-    console.log({key})
-    console.log({formData})
+    
     if (school.adminId !== session.user.id) {
       console.log({"School adminID": school.adminId, "userId": session.user.id})
       return {

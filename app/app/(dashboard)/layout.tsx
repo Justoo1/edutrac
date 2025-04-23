@@ -1,30 +1,17 @@
-import { ReactNode, Suspense } from "react";
-import Profile from "@/components/profile";
-import Nav from "@/components/nav";
-import { getSession } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import DashboardNav from "@/components/dashboard/nav";
-import DashboardHeader from "@/components/dashboard/header";
+import { MainLayout } from "@/components/dashboard/layout/main-layout";
+// import { Sidebar } from "@/components/dashboard/Sidebar";
+// import { TopBar } from "@/components/dashboard/top-bar";
+import { ReactNode } from "react";
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  const session = await getSession();
-  if (!session) {
-    redirect("/login");
-  }
-
   return (
-    <div className="flex h-screen flex-col md:flex-row md:overflow-hidden bg-blue-950">
-      <div className="w-full flex-none md:w-64">
-        <DashboardNav />
-      </div>
-      <div className="flex-grow p-6 md:overflow-y-auto md:p-8">
-        <DashboardHeader />
-        <div className="py-6">{children}</div>
-      </div>
-    </div>
+    <MainLayout>
+          {children}
+    </MainLayout>
+    
   );
 }

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import * as z from "zod";
+import { createSchool } from "@/lib/actions";
 
 // UI Components
 import {
@@ -28,48 +29,16 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { AlertCircle, CheckCircle, Info } from "lucide-react";
 
 // Form schema with Zod
-const schoolRegistrationSchema = z
-  .object({
-    name: z
-      .string()
-      .min(2, "School name must be at least 2 characters")
-      .max(100, "School name cannot exceed 100 characters"),
-    subdomain: z
-      .string()
-      .min(3, "Subdomain must be at least 3 characters")
-      .max(63, "Subdomain cannot exceed 63 characters")
-      .regex(
-        /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/,
-        "Subdomain can only contain lowercase letters, numbers, and hyphens. It must start and end with a letter or number."
-      ),
-    adminEmail: z.string().email("Please enter a valid email address"),
-    adminPassword: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-        "Password must include at least one uppercase letter, one lowercase letter, one number, and one special character"
-      ),
-    adminConfirmPassword: z.string(),
-    adminFirstName: z
-      .string()
-      .min(2, "First name must be at least 2 characters"),
-    adminLastName: z.string().min(2, "Last name must be at least 2 characters"),
-    schoolType: z.enum(["PRIMARY", "JHS", "SHS", "BASIC"]).default("BASIC"),
-    plan: z.enum(["BASIC", "STANDARD", "PREMIUM"]).default("BASIC"),
-  })
-  .refine((data) => data.adminPassword === data.adminConfirmPassword, {
-    message: "Passwords do not match",
-    path: ["adminConfirmPassword"],
-  });
-
-// Types
-type RegistrationFormValues = z.infer<typeof schoolRegistrationSchema>;
-
 const quickSetupSchema = z.object({
   name: z
     .string()
@@ -83,6 +52,7 @@ const quickSetupSchema = z.object({
       /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/,
       "Subdomain can only contain lowercase letters, numbers, and hyphens"
     ),
+  schoolType: z.enum(["PRIMARY", "JHS", "SHS", "BASIC"]).default("BASIC"),
 });
 
 export default function QuickSchoolSetup() {
@@ -96,6 +66,7 @@ export default function QuickSchoolSetup() {
     defaultValues: {
       name: "",
       subdomain: "",
+      schoolType: "BASIC",
     },
     mode: "onChange",
   });
@@ -125,25 +96,24 @@ export default function QuickSchoolSetup() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/schools", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          // Add default values for required fields
-          schoolType: "BASIC",
-          plan: "BASIC",
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create school");
+      // Create FormData for the server action
+      const formData = new FormData();
+      formData.append("name", data.name);
+      formData.append("subdomain", data.subdomain);
+      formData.append("schoolType", data.schoolType);
+      formData.append("plan", "BASIC");
+      
+      // Call the createSchool server action
+      const result = await createSchool(formData);
+      
+      if (result.error) {
+        throw new Error(result.error);
       }
 
       toast.success("School created successfully!");
-      router.push("/dashboard/setup"); // Redirect to complete setup
-    } catch (error) {
-      toast.error("Failed to create school");
+      router.push("/settings"); // Redirect to complete setup
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create school");
     } finally {
       setIsSubmitting(false);
     }
@@ -221,10 +191,40 @@ export default function QuickSchoolSetup() {
               )}
             />
 
+            <FormField
+              control={form.control}
+              name="schoolType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>School Type</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select school type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="BASIC">Basic School (K-JHS)</SelectItem>
+                      <SelectItem value="PRIMARY">Primary School Only</SelectItem>
+                      <SelectItem value="JHS">Junior High School Only</SelectItem>
+                      <SelectItem value="SHS">Senior High School</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    This determines which grade levels will be available in your school.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <Button
               type="submit"
               className="w-full"
-              disabled={isSubmitting || !form.formState.isValid}
+              disabled={isSubmitting || !form.formState.isValid || subdomainAvailable === false}
             >
               {isSubmitting ? "Creating..." : "Create School"}
             </Button>

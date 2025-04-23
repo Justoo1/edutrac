@@ -1,46 +1,71 @@
-import { ReactNode } from "react";
-import Form from "@/components/form";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { editUser } from "@/lib/actions";
+import db from "@/lib/db";
+import { schools } from "@/lib/schema";
+import { eq } from "drizzle-orm";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AcademicYearSetup } from "./components/academic-year-setup";
+import { TermSetup } from "./components/term-setup";
+import { BatchSetup } from "./components/batch-setup";
+import { SchoolInfoSetup } from "./components/school-info-setup";
 
-export default async function SettingsPage() {
+const SettingsPage = async () => {
+  // Check if user is authenticated
   const session = await getSession();
   if (!session) {
     redirect("/login");
   }
+
+  // Check if user is an admin
+  if (session.user.role !== "admin") {
+    redirect("/dashboard");
+  }
+
+  // Check if user has a school
+  const school = await db.query.schools.findFirst({
+    where: eq(schools.adminId, session.user.id),
+  });
+
+  // If no school exists, redirect to create one
+  if (!school) {
+    redirect("/onboarding");
+  }
+
   return (
-    <div className="flex max-w-screen-xl flex-col space-y-12 p-8">
-      <div className="flex flex-col space-y-6">
-        <h1 className="font-cal text-3xl font-bold dark:text-white">
-          Settings
-        </h1>
-        <Form
-          title="Name"
-          description="Your name on this app."
-          helpText="Please use 32 characters maximum."
-          inputAttrs={{
-            name: "name",
-            type: "text",
-            defaultValue: session.user.name!,
-            placeholder: "Brendon Urie",
-            maxLength: 32,
-          }}
-          handleSubmit={editUser}
-        />
-        <Form
-          title="Email"
-          description="Your email on this app."
-          helpText="Please enter a valid email."
-          inputAttrs={{
-            name: "email",
-            type: "email",
-            defaultValue: session.user.email!,
-            placeholder: "panic@thedis.co",
-          }}
-          handleSubmit={editUser}
-        />
+    <div className="container mx-auto py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">School Setup</h1>
+        <p className="text-muted-foreground mt-2">
+          Configure your school's information and academic settings
+        </p>
       </div>
+
+      <Tabs defaultValue="school-info" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="school-info">School Info</TabsTrigger>
+          <TabsTrigger value="academic-year">Academic Year</TabsTrigger>
+          <TabsTrigger value="terms">Terms</TabsTrigger>
+          <TabsTrigger value="batches">Batches</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="school-info">
+          <SchoolInfoSetup schoolId={school.id} />
+        </TabsContent>
+        
+        <TabsContent value="academic-year">
+          <AcademicYearSetup schoolId={school.id} />
+        </TabsContent>
+        
+        <TabsContent value="terms">
+          <TermSetup schoolId={school.id} />
+        </TabsContent>
+        
+        <TabsContent value="batches">
+          <BatchSetup schoolId={school.id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
-}
+};
+
+export default SettingsPage;

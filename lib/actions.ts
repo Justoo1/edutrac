@@ -40,6 +40,7 @@ import {
   SelectFeeType,
   SelectFeePayment 
 } from "./schema";
+import { hash } from "bcryptjs";
 
 const nanoid = customAlphabet(
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
@@ -744,19 +745,15 @@ export const deleteStudent = withStudentAuth(
   }
 );
 
-// Class CRUD operations
+// Classroom management
 export const createClass = withSchoolAuth(
   async (formData: FormData, school: SelectSchool) => {
     const name = formData.get("name") as string;
     const gradeLevel = formData.get("gradeLevel") as string;
     const academicYear = formData.get("academicYear") as string;
+    const capacity = parseInt(formData.get("capacity") as string);
+    const room = formData.get("room") as string;
     const classTeacherId = formData.get("classTeacherId") as string || null;
-    const capacity = parseInt(formData.get("capacity") as string) || null;
-    const room = formData.get("room") as string || null;
-    const schedule = formData.get("schedule")
-      ? JSON.parse(formData.get("schedule") as string)
-      : null;
-
     try {
       const [response] = await db
         .insert(classes)
@@ -765,10 +762,9 @@ export const createClass = withSchoolAuth(
           name,
           gradeLevel,
           academicYear,
-          classTeacherId,
           capacity,
           room,
-          schedule,
+          classTeacherId,
         })
         .returning();
 
@@ -781,41 +777,43 @@ export const createClass = withSchoolAuth(
   }
 );
 
-export const updateClass = withClassAuth(
-  async (formData: FormData, classData: SelectClass, key: string) => {
-    const value = formData.get(key) as string;
+export const updateClass = withSchoolAuth(
+  async (formData: FormData, school: SelectSchool) => {
+    const id = formData.get("id") as string;
+    const name = formData.get("name") as string;
+    const gradeLevel = formData.get("gradeLevel") as string;
+    const academicYear = formData.get("academicYear") as string;
+    const capacity = parseInt(formData.get("capacity") as string);
+    const room = formData.get("room") as string;
+    const classTeacherId = formData.get("classTeacherId") as string || null;
 
     try {
-      let response;
+      // Verify that the class belongs to this school
+      const existingClass = await db.query.classes.findFirst({
+        where: and(
+          eq(classes.id, id),
+          eq(classes.schoolId, school.id)
+        ),
+      });
 
-      if (key === "capacity") {
-        response = await db
-          .update(classes)
-          .set({
-            capacity: parseInt(value) || null,
-          })
-          .where(eq(classes.id, classData.id))
-          .returning()
-          .then((res) => res[0]);
-      } else if (key === "schedule") {
-        response = await db
-          .update(classes)
-          .set({
-            schedule: JSON.parse(value),
-          })
-          .where(eq(classes.id, classData.id))
-          .returning()
-          .then((res) => res[0]);
-      } else {
-        response = await db
-          .update(classes)
-          .set({
-            [key]: value,
-          })
-          .where(eq(classes.id, classData.id))
-          .returning()
-          .then((res) => res[0]);
+      if (!existingClass) {
+        return {
+          error: "Class not found in this school",
+        };
       }
+
+      const [response] = await db
+        .update(classes)
+        .set({
+          name,
+          gradeLevel,
+          academicYear,
+          capacity,
+          room,
+          classTeacherId,
+        })
+        .where(eq(classes.id, id))
+        .returning();
 
       return response;
     } catch (error: any) {
@@ -826,15 +824,36 @@ export const updateClass = withClassAuth(
   }
 );
 
-export const deleteClass = withClassAuth(
-  async (_: FormData, classData: SelectClass) => {
-    try {
-      const [response] = await db
-        .delete(classes)
-        .where(eq(classes.id, classData.id))
-        .returning();
+export const deleteClass = withSchoolAuth(
+  async (formData: FormData, school: SelectSchool) => {
+    const id = formData.get("id") as string;
 
-      return response;
+    try {
+      // Verify that the class belongs to this school
+      const existingClass = await db.query.classes.findFirst({
+        where: and(
+          eq(classes.id, id),
+          eq(classes.schoolId, school.id)
+        ),
+      });
+
+      if (!existingClass) {
+        return {
+          error: "Class not found in this school",
+        };
+      }
+
+      // Delete all enrollments first
+      await db
+        .delete(classEnrollments)
+        .where(eq(classEnrollments.classId, id));
+
+      // Delete the class
+      await db
+        .delete(classes)
+        .where(eq(classes.id, id));
+
+      return { success: true };
     } catch (error: any) {
       return {
         error: error.message,
@@ -1939,6 +1958,13 @@ export const inviteUserToSchool = withSchoolAuth(
     const email = formData.get("email") as string;
     const name = formData.get("name") as string;
     const role = formData.get("role") as string;
+    const staffId = formData.get("staffId") as string || null;
+    const position = formData.get("position") as string || "Teacher";
+    const department = formData.get("department") as string || null;
+    const qualification = formData.get("qualification") as string || null;
+    const contactInfo = formData.get("contactInfo") 
+      ? JSON.parse(formData.get("contactInfo") as string) 
+      : {};
 
     try {
       // Check if the user already exists
@@ -1973,13 +1999,16 @@ export const inviteUserToSchool = withSchoolAuth(
       }
 
       // Create staff record for the user
-      const [staffMember] = await db
-        .insert(staff)
+      const [staffMember] = await db.insert(staff)
         .values({
           userId: user.id,
           schoolId: school.id,
-          position: role,
-          status: "invited",
+          staffId,
+          position,
+          department,
+          qualification,
+          contactInfo,
+          status: "active",
         })
         .returning();
 
@@ -2011,4 +2040,80 @@ export async function getSchoolPlanAndSiteCount(schoolId: string) {
     plan: school.plan || 'free',
     siteCount: school.contents.length,
   };
+}
+
+export type SelectStaff = typeof staff.$inferSelect;
+export type InsertStaff = typeof staff.$inferInsert;
+
+
+export async function createTeacher(data: {
+  name: string;
+  email: string;
+  password: string;
+  subject: string;
+  classes: string[];
+  phone: string;
+  address: string;
+}) {
+  // Create user first
+  const hashedPassword = await hash("teacher@1234", 10);
+  const user = await db.insert(users).values({
+    name: data.name,
+    email: data.email,
+    password: hashedPassword,
+    role: "teacher",
+  }).returning();
+
+  // Then create teacher profile with mapped fields
+  const contactInfo = {
+    phone: data.phone,
+    address: data.address,
+    subject: data.subject,
+    classes: data.classes.join(", ")
+  };
+
+  const teacher = await db.insert(staff).values({
+    userId: user[0].id,
+    position: "Teacher",
+    department: data.subject,
+    contactInfo
+  }).returning();
+
+  return teacher[0];
+}
+
+export async function updateTeacher(
+  id: string,
+  data: Partial<Omit<InsertStaff, "userId">>
+) {
+  const teacher = await db
+    .update(staff)
+    .set(data)
+    .where(eq(staff.id, id))
+    .returning();
+
+  return teacher[0];
+}
+
+export async function deleteTeacher(id: string) {
+  try {
+    // Use a full URL with a fallback to relative URL
+    const url = typeof window !== 'undefined' 
+      ? `/api/teachers?id=${id}` 
+      : `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/teachers?id=${id}`;
+      
+    const response = await fetch(url, {
+      method: 'DELETE',
+      next: { tags: ['teachers'] },
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to delete teacher');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error deleting teacher:', error);
+    throw error;
+  }
 }

@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     const { name, email, password } = validatedData.data;
     
     // Create the user
-    const user = await createUser(email, password, name);
+    const user = await createUser(email, password, name, "admin");
     
     // Return success response (excluding password)
     const { password: _, ...userWithoutPassword } = user;
