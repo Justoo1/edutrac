@@ -1646,8 +1646,14 @@ export const termReports = pgTable(
   "term_reports",
   {
     id: text("id").primaryKey().$defaultFn(() => createId()),
-    studentId: text("student_id").notNull(),
-    examPeriodId: text("exam_period_id").notNull(),
+    studentId: text("student_id").notNull()
+      .references(() => students.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    // Remove examPeriodId
+    // Add new fields:
+    academicYearId: text("academic_year_id").notNull()
+      .references(() => academicYears.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    academicTermId: text("academic_term_id").notNull()
+      .references(() => academicTerms.id, { onDelete: "cascade", onUpdate: "cascade" }),
     totalMarks: real("total_marks").notNull(),
     averageScore: real("average_score").notNull(),
     rank: text("rank").notNull(),
@@ -1657,9 +1663,11 @@ export const termReports = pgTable(
   },
   (table) => {
     return {
+      // Update the unique index to use the new fields
       termReportUniqueIdx: uniqueIndex("term_report_unique_idx").on(
         table.studentId,
-        table.examPeriodId
+        table.academicYearId,
+        table.academicTermId
       ),
     };
   }
@@ -1674,7 +1682,10 @@ export const termReportDetails = pgTable("term_report_details", {
   examScore: numeric("exam_score", { precision: 5, scale: 2 }),
   totalScore: numeric("total_score", { precision: 5, scale: 2 }),
   gradeId: integer("grade_id").references(() => gradeSystem.id),
-  position: integer("position"),
+  position: integer("position"), // overall class postion after find the total for all exams
+  coursePosition: integer("course_position"), // course or program position. This is optional for Basic Schools, but for High Schools it will be required
+  batchPosition: integer("batch_position"), // Batch or form position
+  classPosition: integer("class_position"), // class position for each subject
   teacherRemarks: text("teacher_remarks"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -1703,6 +1714,39 @@ export const examRelations = relations(exams, ({ one, many }) => ({
   creator: one(users, { fields: [exams.createdBy], references: [users.id] }),
   examStudents: many(examStudents),
   examScores: many(examScores),
+}));
+
+export const termReportRelations = relations(termReports, ({ one, many }) => ({
+  student: one(students, { 
+    fields: [termReports.studentId], 
+    references: [students.id] 
+  }),
+  // Add relations for academic year and term
+  academicYear: one(academicYears, {
+    fields: [termReports.academicYearId],
+    references: [academicYears.id]
+  }),
+  academicTerm: one(academicTerms, {
+    fields: [termReports.academicTermId],
+    references: [academicTerms.id]
+  }),
+  // Relation to term report details
+  details: many(termReportDetails)
+}));
+
+export const termReportDetailsRelations = relations(termReportDetails, ({ one }) => ({
+  termReport: one(termReports, { 
+    fields: [termReportDetails.termReportId], 
+    references: [termReports.id] 
+  }),
+  subject: one(subjects, { 
+    fields: [termReportDetails.subjectId], 
+    references: [subjects.id] 
+  }),
+  grade: one(gradeSystem, { 
+    fields: [termReportDetails.gradeId], 
+    references: [gradeSystem.id] 
+  }),
 }));
 
 // Add relations for examStudents

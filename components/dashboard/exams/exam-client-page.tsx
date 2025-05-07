@@ -276,8 +276,8 @@ export default function ExamClientPage({ schoolId }: ExamClientPageProps) {
                 </div>
                 <h3 className="text-xl font-bold mb-2">Term Reports</h3>
                 <p className="text-gray-600 mb-4">Generate and manage end of term reports</p>
-                <Button variant="outline" className="w-full">
-                  View Reports
+                <Button variant="outline" className="w-full" onClick={() => router.push("/exams/report/generate")}>
+                    View Reports
                 </Button>
               </CardContent>
             </Card>
