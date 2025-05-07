@@ -1,4 +1,4 @@
-"use client";
+// components/dashboard/exams/export-modal.tsx
 
 import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
@@ -13,55 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Download, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { 
-  generateMultiExamTemplate,
-  downloadCSV,
-  formatDateForFilename,
-  parseMultiExamScores
-} from "@/lib/export-utils";
-import { SelectClass, SelectSubject, SelectStaff, SelectAcademicYear, SelectAcademicTerm } from "@/lib/schema";
-import { eq } from "drizzle-orm";
-import db from "@/lib/db";
-import { classes, subjects, staff, academicYears, academicTerms } from "@/lib/schema";
-
-interface Exam {
-  id: string;
-  name: string;
-  subject: {
-    name: string;
-    code: string;
-  };
-  class: {
-    name: string;
-    level: string;
-  };
-  examDate: string;
-  totalMarks: number;
-  examStudents?: {
-    studentId: string;
-    student?: {
-      id: string;
-      firstName: string;
-      lastName: string;
-      studentId: string;
-    };
-  }[];
-}
-
-interface ClassOption {
-  id: string;
-  name: string;
-}
-
-interface SubjectOption {
-  id: string;
-  name: string;
-  code: string;
-}
-
-interface PeriodOption {
-  id: string;
-  name: string;
-}
+  generateExcelWorkbook,
+  downloadExcel,
+  processExcelFile
+} from "@/lib/excel-utils"; // Import from our new file
 
 interface ExportModalProps {
   open: boolean;
@@ -82,21 +37,20 @@ export default function ExportModal({
   const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [optionsLoading, setOptionsLoading] = useState(false);
-  const [availableExams, setAvailableExams] = useState<Exam[]>([]);
+  const [availableExams, setAvailableExams] = useState<any[]>([]);
   const [selectedExamIds, setSelectedExamIds] = useState<Set<string>>(new Set());
   const [selectedTermId, setSelectedTermId] = useState<string>("");
   const [uploading, setUploading] = useState(false);
-  const [classOptions, setClassOptions] = useState<SelectClass[]>([]);
-  const [subjectOptions, setSubjectOptions] = useState<SelectSubject[]>([]);
-  const [staffOptions, setStaffOptions] = useState<SelectStaff[]>([]);
-  const [academicYearOptions, setAcademicYearOptions] = useState<SelectAcademicYear[]>([]);
-  const [termOptions, setTermOptions] = useState<SelectAcademicTerm[]>([]);
+  const [classOptions, setClassOptions] = useState<any[]>([]);
+  const [subjectOptions, setSubjectOptions] = useState<any[]>([]);
+  const [staffOptions, setStaffOptions] = useState<any[]>([]);
+  const [academicYearOptions, setAcademicYearOptions] = useState<any[]>([]);
+  const [termOptions, setTermOptions] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Add effect to reset and set initial loading state when modal opens
+  // Reset selections and set loading state when modal opens
   useEffect(() => {
     if (open) {
-      // Reset selections when modal opens
       setSelectedClassId("");
       setSelectedSubjectId("");
       setSelectedStaffId("");
@@ -104,14 +58,13 @@ export default function ExportModal({
       setSelectedTermId("");
       setAvailableExams([]);
       setSelectedExamIds(new Set());
-      
-      // Set loading state to true to show loading indicators
       setOptionsLoading(true);
     }
   }, [open]);
 
+  // Fetch options when modal opens
   useEffect(() => {
-    const fetchClassOptions = async () => {
+    const fetchOptions = async () => {
       if (!schoolId || !open) return;
       
       setOptionsLoading(true);
@@ -123,23 +76,25 @@ export default function ExportModal({
           fetch(`/api/schools/${schoolId}/academic/years`),
           fetch(`/api/schools/${schoolId}/academic/terms`)
         ]);
-        if (!classResponse.ok ) {
+        
+        if (!classResponse.ok) {
           throw new Error("Failed to fetch classes");
         }
-        const classData = await classResponse.json();
         if (!subjectResponse.ok) {
           throw new Error("Failed to fetch subjects");
         }
-        const subjectData = await subjectResponse.json();
         if (!staffResponse.ok) {
           throw new Error("Failed to fetch staff");
         }
         if (!academicYearResponse.ok) {
-            throw new Error("Failed to fetch academic years");
+          throw new Error("Failed to fetch academic years");
         }
         if (!termResponse.ok) {
-            throw new Error("Failed to fetch academic terms");
+          throw new Error("Failed to fetch academic terms");
         }
+        
+        const classData = await classResponse.json();
+        const subjectData = await subjectResponse.json();
         const staffData = await staffResponse.json();
         const academicYearData = await academicYearResponse.json();
         const termData = await termResponse.json();
@@ -159,27 +114,27 @@ export default function ExportModal({
         setOptionsLoading(false);
       }
     };
-    fetchClassOptions();
+    fetchOptions();
   }, [schoolId, open]);
 
   // Individual handlers for each dropdown change
-  const handleClassChange = (e) => {
+  const handleClassChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedClassId(e.target.value);
   };
 
-  const handleSubjectChange = (e) => {
+  const handleSubjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedSubjectId(e.target.value);
   };
 
-  const handleAcademicYearChange = (e) => {
+  const handleAcademicYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedAcademicYear(e.target.value);
   };
 
-  const handleTermChange = (e) => {
+  const handleTermChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedTermId(e.target.value);
   };
 
-  const handleStaffChange = (e) => {
+  const handleStaffChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedStaffId(e.target.value);
   };
 
@@ -190,7 +145,7 @@ export default function ExportModal({
     }
   }, [selectedClassId, selectedSubjectId, selectedAcademicYear, selectedTermId, selectedStaffId]);
 
-  // Separate function to fetch available exams
+  // Fetch available exams
   const fetchAvailableExams = async () => {
     if (!selectedClassId || !selectedSubjectId || !selectedAcademicYear || !selectedTermId || !selectedStaffId) {
       setAvailableExams([]);
@@ -206,7 +161,7 @@ export default function ExportModal({
       if (!response.ok) {
         const body = await response.json();
         console.log(body);
-        toast.error(body.error);
+        toast.error(body.error || "Failed to fetch exams");
         setAvailableExams([]);
         return;
       }
@@ -216,7 +171,7 @@ export default function ExportModal({
 
       // Select all exams by default
       const newSelectedExams = new Set<string>();
-      exams.forEach((exam: Exam) => {
+      exams.forEach((exam: any) => {
         newSelectedExams.add(exam.id);
       });
       setSelectedExamIds(newSelectedExams);
@@ -229,6 +184,7 @@ export default function ExportModal({
     }
   };
 
+  // Handle exam selection change
   const handleExamCheckboxChange = (examId: string, checked: boolean) => {
     const newSelectedExams = new Set(selectedExamIds);
     
@@ -241,6 +197,7 @@ export default function ExportModal({
     setSelectedExamIds(newSelectedExams);
   };
 
+  // Export data to Excel
   const handleExportTemplate = async () => {
     if (selectedExamIds.size === 0) {
       toast.error("Please select at least one exam to export");
@@ -259,16 +216,20 @@ export default function ExportModal({
       // Get students for each exam
       const examsWithStudents = await Promise.all(
         examsToExport.map(async (exam) => {
+          // Get or extract exam type name
+          const examTypeName = exam.examType.name || getExamTypeNameById(exam.examType);
+          console.log({examTypeName})
+          
           // If exam already has students, use them
           if (exam.examStudents && exam.examStudents.length > 0) {
             return {
               id: exam.id,
               name: exam.name,
-              subject: exam.subject.name,
-              subjectCode: exam.subject.code,
-              className: exam.class.name,
+              subject: exam.subject,
+              class: exam.class,
               examDate: format(new Date(exam.examDate), "yyyy-MM-dd"),
               totalMarks: exam.totalMarks,
+              examTypeName,
               students: exam.examStudents.map(es => ({
                 id: es.student?.id || es.studentId,
                 name: es.student ? `${es.student.firstName} ${es.student.lastName}` : "Unknown",
@@ -287,11 +248,11 @@ export default function ExportModal({
           return {
             id: exam.id,
             name: exam.name,
-            subject: exam.subject.name,
-            subjectCode: exam.subject.code,
-            className: exam.class.name,
+            subject: exam.subject,
+            class: exam.class,
             examDate: format(new Date(exam.examDate), "yyyy-MM-dd"),
             totalMarks: exam.totalMarks,
+            examTypeName,
             students: students.map((s: any) => ({
               id: s.id,
               name: s.name,
@@ -301,19 +262,21 @@ export default function ExportModal({
         })
       );
 
-      // Find the selected period name
+      // Get period name
       const academicYearName = academicYearOptions.find(p => p.id === selectedAcademicYear)?.name || "Current Academic Year";
+      const termName = termOptions.find(t => t.id === selectedTermId)?.name || "";
+      const periodName = `${academicYearName} - ${termName}`;
 
-      // Generate the CSV content
-      const csvContent = generateMultiExamTemplate(examsWithStudents, academicYearName);
+      // Generate Excel workbook
+      const workbook = generateExcelWorkbook(examsWithStudents, periodName);
 
       // Create a descriptive filename
-      const subjectCode = examsWithStudents[0]?.subjectCode || "SUBJ";
-      const className = examsWithStudents[0]?.className.replace(/\s+/g, "") || "Class";
-      const filename = `${subjectCode}_${className}_${academicYearName.replace(/\s+/g, "")}_scores.csv`;
+      const subjectCode = examsWithStudents[0]?.subject.code || "SUBJ";
+      const className = examsWithStudents[0]?.class.name.replace(/\s+/g, "") || "Class";
+      const filename = `${subjectCode}_${className}_${academicYearName.replace(/\s+/g, "")}`;
 
-      // Trigger download
-      downloadCSV(filename, csvContent);
+      // Trigger Excel download
+      downloadExcel(filename, workbook);
 
       toast.dismiss();
       toast.success("Export completed successfully");
@@ -326,12 +289,28 @@ export default function ExportModal({
     }
   };
 
+  // Helper function to get exam type name by ID
+  const getExamTypeNameById = (examTypeId: string): string => {
+    // This should be replaced with actual exam type fetching logic
+    // For now, return a default value based on exam type ID
+    console.log({examTypeId})
+    const typeMap: Record<string, string> = {
+      "class_test_1": "Class Test 1",
+      "class_test_2": "Class Test 2",
+      "mid_term": "Mid-Term Exam",
+      "end_of_term": "End of Term"
+    };
+    return typeMap[examTypeId] || "Exam";
+  };
+
+  // Handle file upload for scores
   const handleFileUpload = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
   };
 
+  // Process the uploaded Excel file
   const processUploadedFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || selectedExamIds.size === 0) {
@@ -350,6 +329,9 @@ export default function ExportModal({
       // Prepare formatted exam data for the parser
       const formattedExams = await Promise.all(
         examsToProcess.map(async (exam) => {
+          // Get or extract exam type name
+          const examTypeName = exam.examType.name || getExamTypeNameById(exam.examType);
+          
           // Ensure we have students for each exam
           let students = [];
           
@@ -370,18 +352,18 @@ export default function ExportModal({
           return {
             id: exam.id,
             name: exam.name,
-            subject: exam.subject.name,
-            subjectCode: exam.subject.code,
-            className: exam.class.name,
-            examDate: format(new Date(exam.examDate), "yyyy-MM-dd"),
+            subject: exam.subject,
+            class: exam.class,
+            examDate: exam.examDate,
             totalMarks: exam.totalMarks,
+            examTypeName,
             students
           };
         })
       );
 
-      // Parse the file
-      const parsedScores = await parseMultiExamScores(file, formattedExams);
+      // Process the Excel file
+      const parsedScores = await processExcelFile(file, formattedExams);
 
       if (parsedScores.length === 0) {
         toast.dismiss();
@@ -630,10 +612,10 @@ export default function ExportModal({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".xlsx, .xls"
                 className="hidden"
                 onChange={processUploadedFile}
-                aria-label="Upload exam scores CSV file"
+                aria-label="Upload exam scores Excel file"
               />
               <Button 
                 variant="outline" 

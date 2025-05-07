@@ -31,7 +31,9 @@ import {
 import ExamPeriodsSection from "@/components/dashboard/exams/exam-periods-section";
 import ExamTypesSection from "@/components/dashboard/exams/exam-types-section";
 import ExamConfigurationSection from "@/components/dashboard/exams/exam-configuration-section";
-import AllExamSection from "./all-exam-section";
+import ExamSection from "./exam-section";
+import { toast } from "sonner"
+import LoadingDots from "@/components/icons/loading-dots";
 
 interface ExamClientPageProps {
   schoolId: string;
@@ -52,12 +54,12 @@ export default function ExamClientPage({ schoolId }: ExamClientPageProps) {
     const fetchExamStats = async () => {
       try {
         // This would be replaced with actual API call to get stats
-        setExamStats({
-          total: 5,
-          upcoming: 3,
-          inProgress: 0,
-          completed: 2
-        });
+        const response = await fetch("api/exams/stats")
+        if(!response.ok){
+          throw new Error("Could not fetch exams Page stats")
+        }
+        const data = await response.json()
+        setExamStats(data);
         setIsLoading(false);
       } catch (error) {
         console.error("Error fetching exam stats:", error);
@@ -97,7 +99,7 @@ export default function ExamClientPage({ schoolId }: ExamClientPageProps) {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Total Exams</p>
-                <h3 className="text-3xl font-bold">{examStats.total}</h3>
+                <h3 className="text-3xl font-bold">{isLoading ? <LoadingDots /> : examStats.total}</h3>
               </div>
             </CardContent>
           </Card>
@@ -109,7 +111,7 @@ export default function ExamClientPage({ schoolId }: ExamClientPageProps) {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Upcoming</p>
-                <h3 className="text-3xl font-bold">{examStats.upcoming}</h3>
+                <h3 className="text-3xl font-bold">{isLoading ? <LoadingDots /> : examStats.upcoming}</h3>
               </div>
             </CardContent>
           </Card>
@@ -121,7 +123,7 @@ export default function ExamClientPage({ schoolId }: ExamClientPageProps) {
               </div>
               <div>
                 <p className="text-sm text-gray-500">In Progress</p>
-                <h3 className="text-3xl font-bold">{examStats.inProgress}</h3>
+                <h3 className="text-3xl font-bold">{isLoading ? <LoadingDots /> : examStats.inProgress}</h3>
               </div>
             </CardContent>
           </Card>
@@ -133,7 +135,7 @@ export default function ExamClientPage({ schoolId }: ExamClientPageProps) {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Completed</p>
-                <h3 className="text-3xl font-bold">{examStats.completed}</h3>
+                <h3 className="text-3xl font-bold">{isLoading ? <LoadingDots /> : examStats.completed}</h3>
               </div>
             </CardContent>
           </Card>
@@ -219,11 +221,13 @@ export default function ExamClientPage({ schoolId }: ExamClientPageProps) {
                 <Button onClick={() => router.push("/exams/new")}>Create Your First Exam</Button>
               </div>
             ) : (
-              <AllExamSection schoolId={schoolId} />
+              <ExamSection schoolId={schoolId} tableTitle="All Exams" />
             )}
           </TabsContent>
           {/* Other tab contents would be similar */}
-          <TabsContent value="upcoming">Upcoming exams content</TabsContent>
+          <TabsContent value="upcoming">
+            <ExamSection schoolId={schoolId} upcoming={true} tableTitle="Upcoming Exams"/>
+          </TabsContent>
           <TabsContent value="ongoing">Ongoing exams content</TabsContent>
           <TabsContent value="completed">Completed exams content</TabsContent>
           <TabsContent value="archived">Archived exams content</TabsContent>

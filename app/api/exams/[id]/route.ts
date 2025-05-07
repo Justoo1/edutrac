@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import db from '@/lib/db';
 import { exams } from '@/lib/schema';
 import { eq } from 'drizzle-orm';
+import { truncates } from 'bcryptjs';
 
 export async function GET(
   request: Request,
@@ -26,7 +27,12 @@ export async function GET(
         examPeriod: true,
         class: true,
         subject: true,
-        examType: true,
+        examType:{
+          columns:{
+            id: true,
+            name: true
+          }
+        },
         examStudents: {
           columns: {
             id: true,
@@ -44,7 +50,23 @@ export async function GET(
             },
           },
         },
-        examScores: true,
+        examScores: {
+          columns: {
+            rawScore: true,
+            id: true,
+            studentId:true
+          },
+          with:{
+            student: {
+              columns: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                studentId: true,
+              },
+            },
+          }
+        },
       },
     });
 

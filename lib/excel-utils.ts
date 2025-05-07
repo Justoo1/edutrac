@@ -1,148 +1,187 @@
-/**
- * Excel Export Utilities for EduTrac
- */
+// lib/excel-utils.ts
+
+import * as XLSX from 'xlsx';
 
 interface Student {
   id: string;
   name: string;
   indexNumber: string;
-  status: "present" | "absent" | "exempted" | "sick" | "assigned";
-  score?: number | null;
-  grade?: string | null;
+  status?: "present" | "absent" | "exempted" | "sick" | "assigned";
 }
 
-interface ExamExportData {
-  examName: string;
-  subject: string;
-  className: string;
+interface ExamData {
+  id: string;
+  name: string;
+  subject: {
+    name: string;
+    code: string;
+  };
+  class: {
+    name: string;
+    level?: string;
+  };
   examDate: string;
   totalMarks: number;
+  examTypeName: string; // Use exam type instead of name
   students: Student[];
 }
 
 interface ParsedScore {
+  examId: string;
+  studentId: string;
   indexNumber: string;
   score: number;
   remarks?: string;
-  examId?: string; // Track which exam this score belongs to
-}
-
-interface MultiExamData {
-  subject: string;
-  className: string;
-  period: string;
-  exams: {
-    id: string;
-    name: string;
-    totalMarks: number;
-    date: string;
-  }[];
-  students: Student[];
 }
 
 /**
- * Generate CSV content for exam scores template
+ * Generate Excel workbook for multiple exams data
  * 
- * @param data Exam data with student information
- * @returns CSV string content
+ * @param exams Array of exam data with student information
+ * @param periodName The academic period name
+ * @returns Excel workbook object
  */
-export function generateExamScoresTemplate(data: ExamExportData): string {
-  // Create header row with metadata
-  const headerRows = [
-    `Exam Name,${data.examName}`,
-    `Subject,${data.subject}`,
-    `Class,${data.className}`,
-    `Date,${data.examDate}`,
-    `Total Marks,${data.totalMarks}`,
-    '',
-    'Index Number,Student Name,Score,Remarks'
-  ];
-
-  // Create data rows for each student
-  const studentRows = data.students.map(student => {
-    return `${student.indexNumber},"${student.name}",,`;
-  });
-
-  // Combine all rows and return as CSV string
-  return [...headerRows, ...studentRows].join('\n');
-}
-
 /**
- * Generate CSV content for multiple exam scores template
+ * Generate Excel workbook for multiple exams data
  * 
- * @param data Multiple exam data with student information
- * @returns CSV string content
+ * @param exams Array of exam data with student information
+ * @param periodName The academic period name
+ * @returns Excel workbook object
  */
-export function generateMultiExamScoresTemplate(data: MultiExamData): string {
-  // Create header rows
-  const headerRows = [
-    `Subject,${data.subject}`,
-    `Class,${data.className}`,
-    `Period,${data.period}`,
-    ''
-  ];
+export function generateExcelWorkbook(
+  exams: ExamData[],
+  periodName: string
+): XLSX.WorkBook {
+  if (!exams || exams.length === 0) {
+    throw new Error("No exam data provided");
+  }
 
-  // Create the column headers with exam types and their total marks
-  const examHeaders = ['Number', 'Index Number', 'Student Name'];
-  const totalMarksRow = ['', '', ''];
+  // Extract common data from the first exam
+  const { subject, class: className } = exams[0];
+
+  // Create workbook and worksheet
+  const wb = XLSX.utils.book_new();
+  const wsData: any[][] = [];
   
-  // Add each exam as a column
-  data.exams.forEach(exam => {
-    examHeaders.push(exam.name);
-    totalMarksRow.push(exam.totalMarks.toString());
+  // Add header information
+  wsData.push(["Subject", subject.name]);
+  wsData.push(["Class", className.name]);
+  wsData.push(["Period", periodName]);
+  wsData.push([]);
+  
+  // Create column headers with exam types
+  const headerRow = ["Index Number", "Student Name"];
+  
+  // Add total marks row
+  const marksRow = ["", "Total Marks"];
+  
+  // Create a hidden row for exam IDs
+  const examIdsRow = ["", "EXAM_IDS"];
+  
+  exams.forEach((exam) => {
+    // Use exam type for column header
+    const columnHeader = `${exam.examTypeName}`;
+    headerRow.push(columnHeader);
+    marksRow.push(exam.totalMarks.toString());
+    
+    // Add exam ID to the hidden row
+    examIdsRow.push(exam.id);
   });
+  
+  wsData.push(headerRow);
+  wsData.push(examIdsRow); // Add hidden row with exam IDs
+  wsData.push(marksRow);
+  
+  // Get unique students from all exams
+  const uniqueStudents = getAllUniqueStudents(exams);
+  
+  // Add student rows
+  uniqueStudents.forEach(student => {
+    const row = [
+      student.indexNumber,
+      student.name
+    ];
+    
+    // Add empty cells for scores
+    exams.forEach(() => {
+      row.push("0");
+    });
+    
+    wsData.push(row);
+  });
+  
+  // Create worksheet from data
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  
+  // Set column widths
+  ws['!cols'] = [
+    { wch: 15 }, // Index Number
+    { wch: 30 }, // Student Name
+    ...exams.map(() => ({ wch: 20 })) // Width for each exam column
+  ];
+  
+  // Hide the exam IDs row (row index 5)
+  // Note: This works in Excel but might not work in all spreadsheet software
+  const hiddenRowIndex = 5;
+  // Attempt to add row properties to hide the row
+  if (!ws['!rows']) ws['!rows'] = [];
+  ws['!rows'][hiddenRowIndex] = { hidden: true };
+  
+  // Add worksheet to workbook
+  XLSX.utils.book_append_sheet(wb, ws, "Exam Scores");
+  
+  return wb;
+}
 
-  // Add the "Total" column at the end if there are multiple exams
-  if (data.exams.length > 1) {
-    examHeaders.push('Total');
-    totalMarksRow.push('');
+/**
+ * Extract all unique students from multiple exams
+ * 
+ * @param exams Array of exam data with students
+ * @returns Array of unique students
+ */
+function getAllUniqueStudents(exams: ExamData[]): Student[] {
+  // Use a Map with student ID as key to ensure uniqueness
+  const studentsMap = new Map<string, Student>();
+  
+  exams.forEach(exam => {
+    exam.students.forEach(student => {
+      if (!studentsMap.has(student.id)) {
+        studentsMap.set(student.id, student);
+      }
+    });
+  });
+  
+  // Convert Map to array and sort by name
+  return Array.from(studentsMap.values())
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Trigger download of Excel file
+ * 
+ * @param filename The name of the file (without extension)
+ * @param workbook The Excel workbook to download
+ */
+export function downloadExcel(filename: string, workbook: XLSX.WorkBook): void {
+  // Write workbook to binary string
+  const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
+  
+  // Convert binary string to array buffer
+  const buf = new ArrayBuffer(wbout.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < wbout.length; i++) {
+    view[i] = wbout.charCodeAt(i) & 0xFF;
   }
   
-  // Add the headers to the rows
-  headerRows.push(examHeaders.join(','));
-  headerRows.push(totalMarksRow.join(','));
-  
-  // Create data rows for each student
-  const studentRows = data.students.map((student, index) => {
-    const studentInfo = [index + 1, student.indexNumber, `"${student.name}"`];
-    
-    // Add empty cells for each exam column
-    data.exams.forEach(() => studentInfo.push('0'));
-    
-    // Add an empty cell for the total column if needed
-    if (data.exams.length > 1) {
-      studentInfo.push('0');
-    }
-    
-    return studentInfo.join(',');
-  });
-  
-  // Combine all rows and return as CSV string
-  return [...headerRows, ...studentRows].join('\n');
-}
-
-/**
- * Trigger download of a CSV file in the browser
- * 
- * @param filename The name of the file to be downloaded
- * @param content The content of the CSV file
- */
-export function downloadCSV(filename: string, content: string): void {
-  // Create a Blob with the CSV content
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-  
-  // Create a URL for the Blob
+  // Create blob and URL
+  const blob = new Blob([buf], { type: 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
   
-  // Create a link element
+  // Create download link and trigger click
   const link = document.createElement('a');
   link.href = url;
-  link.setAttribute('download', filename);
-  
-  // Append the link to the body (required for Firefox)
+  link.setAttribute('download', `${filename}.xlsx`);
   document.body.appendChild(link);
-  
-  // Trigger the download
   link.click();
   
   // Clean up
@@ -151,163 +190,116 @@ export function downloadCSV(filename: string, content: string): void {
 }
 
 /**
- * Format date for file naming
+ * Process uploaded Excel file to extract scores
  * 
- * @param date Date string
- * @returns Formatted date string for filenames (YYYY-MM-DD)
+ * @param file The uploaded Excel file
+ * @param exams Array of exam data for matching scores to the right exams/students
+ * @returns Promise resolving to parsed scores
  */
-export function formatDateForFileName(date: string): string {
-  try {
-    const d = new Date(date);
-    return d.toISOString().split('T')[0]; // Returns YYYY-MM-DD
-  } catch (error) {
-    return 'unknown-date';
-  }
-}
-
-/**
- * Parse CSV content from uploaded file
- * 
- * @param file The uploaded CSV file
- * @returns Promise that resolves to parsed student scores
- */
-export function parseScoresCSV(file: File): Promise<ParsedScore[]> {
+export function processExcelFile(
+  file: File,
+  exams: ExamData[]
+): Promise<ParsedScore[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
-    reader.onload = (event) => {
+    reader.onload = (e) => {
       try {
-        const csvContent = event.target?.result as string;
-        const lines = csvContent.split('\n');
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
         
-        // Find the header line (should contain "Index Number,Student Name,Score,Remarks")
-        const headerLineIndex = lines.findIndex(line => 
-          line.includes('Index Number') && line.includes('Student Name') && line.includes('Score')
-        );
+        // Get first worksheet
+        const wsname = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[wsname];
         
-        if (headerLineIndex === -1) {
-          throw new Error('Invalid CSV format: Header row not found');
-        }
+        // Convert worksheet to array of arrays
+        const sheetData = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1 });
+        console.log({sheetData});
         
-        // Parse data rows (all rows after the header)
-        const dataRows = lines.slice(headerLineIndex + 1);
-        
-        const parsedScores: ParsedScore[] = [];
-        
-        for (const row of dataRows) {
-          if (row.trim() === '') continue; // Skip empty rows
-          
-          const columns = parseCSVRow(row);
-          
-          // Expected format: Index Number, Student Name, Score, Remarks
-          const indexNumber = columns[0]?.trim();
-          const scoreStr = columns[2]?.trim();
-          const score = parseFloat(scoreStr);
-          const remarks = columns[3]?.trim();
-          
-          // Skip rows with missing index number or invalid score
-          if (!indexNumber || isNaN(score)) continue;
-          
-          parsedScores.push({
-            indexNumber,
-            score,
-            remarks: remarks || undefined
-          });
-        }
-        
-        resolve(parsedScores);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    
-    reader.onerror = () => {
-      reject(new Error('Error reading file'));
-    };
-    
-    reader.readAsText(file);
-  });
-}
-
-/**
- * Parse CSV content from an uploaded multi-exam file
- * 
- * @param file The uploaded CSV file
- * @param examMap Object mapping exam names to exam IDs
- * @returns Promise that resolves to parsed student scores with exam IDs
- */
-export function parseMultiExamScoresCSV(file: File, examMap: Record<string, string>): Promise<ParsedScore[]> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (event) => {
-      try {
-        const csvContent = event.target?.result as string;
-        const lines = csvContent.split('\n');
-        
-        // Find the header line (should contain exam names)
-        const headerLineIndex = lines.findIndex(line => 
-          line.includes('Index Number') && line.includes('Student Name')
-        );
-        
-        if (headerLineIndex === -1) {
-          throw new Error('Invalid CSV format: Header row not found');
-        }
-        
-        // Parse the headers to determine which column is which exam
-        const headers = parseCSVRow(lines[headerLineIndex]);
-        const indexNumberIndex = headers.findIndex(h => h.includes('Index Number'));
-        
-        if (indexNumberIndex === -1) {
-          throw new Error('Invalid CSV format: Index Number column not found');
-        }
-        
-        // Find the column index for each exam
-        const examColumns: {name: string, index: number, id: string}[] = [];
-        
-        headers.forEach((header, index) => {
-          const examId = examMap[header.trim()];
-          if (examId) {
-            examColumns.push({
-              name: header.trim(), 
-              index, 
-              id: examId
-            });
+        // Look for the exam IDs row (should be after headers)
+        let examIdsRowIndex = -1;
+        for (let i = 0; i < sheetData.length; i++) {
+          if (sheetData[i] && sheetData[i][1] === 'EXAM_IDS') {
+            examIdsRowIndex = i;
+            break;
           }
-        });
-        
-        if (examColumns.length === 0) {
-          throw new Error('No matching exam columns found in the file');
         }
         
-        // Parse data rows (all rows after the header)
-        const dataRows = lines.slice(headerLineIndex + 1);
+        // If we can't find the exam IDs row, try to match by exam type
+        let examMap: {[key: number]: string} = {};
+        
+        if (examIdsRowIndex >= 0) {
+          // Extract exam IDs from the row
+          const examIdsRow = sheetData[examIdsRowIndex];
+          
+          // Start from column 2 (skip Index Number and Student Name)
+          for (let colIdx = 2; colIdx < examIdsRow.length; colIdx++) {
+            if (examIdsRow[colIdx]) {
+              examMap[colIdx] = examIdsRow[colIdx].toString();
+            }
+          }
+        } else {
+          // Fallback: Try to match by exam type in header row
+          // Find the header row (usually row 4)
+          const headerRow = sheetData[4];
+          
+          if (headerRow) {
+            // Skip the first two columns (Index Number, Student Name)
+            for (let colIdx = 2; colIdx < headerRow.length; colIdx++) {
+              const examType = headerRow[colIdx]?.toString();
+              if (!examType) continue;
+              
+              // Find the exam with this type name
+              const matchingExam = exams.find(e => e.examTypeName === examType);
+              if (matchingExam) {
+                examMap[colIdx] = matchingExam.id;
+              }
+            }
+          }
+        }
+        
+        // If we couldn't find any exam IDs, fail
+        if (Object.keys(examMap).length === 0) {
+          throw new Error("Could not find exam IDs in the uploaded file");
+        }
+        
+        // Find where student data starts
+        // If we found the exam IDs row, student data starts after that and the marks row
+        let dataStartRow = examIdsRowIndex >= 0 ? examIdsRowIndex + 2 : 6;
         
         const parsedScores: ParsedScore[] = [];
         
-        for (const row of dataRows) {
-          if (row.trim() === '') continue; // Skip empty rows
+        // Process student rows
+        for (let rowIdx = dataStartRow; rowIdx < sheetData.length; rowIdx++) {
+          const row = sheetData[rowIdx];
+          if (!row || row.length < 2) continue;
           
-          const columns = parseCSVRow(row);
-          
-          // Get the student index number
-          const indexNumber = columns[indexNumberIndex]?.trim();
+          const indexNumber = row[0]?.toString();
           if (!indexNumber) continue;
           
-          // Process each exam column
-          for (const examCol of examColumns) {
-            const scoreStr = columns[examCol.index]?.trim();
+          // Process score columns (starting from column 2)
+          for (let colIdx = 2; colIdx < row.length; colIdx++) {
+            const examId = examMap[colIdx];
+            if (!examId) continue;
             
-            // Skip empty or invalid scores
-            if (!scoreStr || scoreStr === '0') continue;
+            const scoreValue = row[colIdx];
+            if (!scoreValue) continue;
             
-            const score = parseFloat(scoreStr);
-            if (isNaN(score)) continue;
+            const score = parseFloat(scoreValue.toString());
+            if (isNaN(score) || score <= 0) continue;
+            
+            // Find the exam and student
+            const exam = exams.find(e => e.id === examId);
+            if (!exam) continue;
+            
+            const student = exam.students.find(s => s.indexNumber === indexNumber);
+            if (!student) continue;
             
             parsedScores.push({
+              examId,
+              studentId: student.id,
               indexNumber,
-              score,
-              examId: examCol.id
+              score
             });
           }
         }
@@ -319,39 +311,9 @@ export function parseMultiExamScoresCSV(file: File, examMap: Record<string, stri
     };
     
     reader.onerror = () => {
-      reject(new Error('Error reading file'));
+      reject(new Error("Error reading file"));
     };
     
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   });
 }
-
-/**
- * Parse a CSV row considering quoted values
- * 
- * @param row CSV row string
- * @returns Array of column values
- */
-function parseCSVRow(row: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  
-  for (let i = 0; i < row.length; i++) {
-    const char = row[i];
-    
-    if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      result.push(current);
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  
-  // Add the last column
-  result.push(current);
-  
-  return result;
-} 

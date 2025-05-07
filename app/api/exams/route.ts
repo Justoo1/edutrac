@@ -18,6 +18,7 @@ export async function POST(request: Request) {
       description,
       examPeriodId,
       subjectId,
+      termId,
       classId,
       examTypeId,
       totalMarks,
@@ -67,13 +68,15 @@ export async function POST(request: Request) {
     });
 
     const currentTerm = await db.query.academicTerms.findFirst({
-      where: and(
-        eq(academicTerms.schoolId, session.user.schoolId!),
-        eq(academicTerms.isCurrent, true)
-      ),
-    });
-    if (!currentYear || !currentTerm) {
-      return NextResponse.json({ error: 'Current academic year or term not found' }, { status: 404 });
+      where: eq(academicTerms.id, termId)
+    })
+
+    
+    if (!currentYear) {
+      return NextResponse.json({ error: 'Current academic year not found' }, { status: 404 });
+    }
+    if (!currentTerm) {
+      return NextResponse.json({ error: 'Academic term not found' }, { status: 404 });
     }
 
     // If no exam period is selected, create a new one using current academic year and term
@@ -180,18 +183,28 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
+    console.log({searchParams})
     const schoolId = searchParams.get('schoolId');
+    const status = searchParams.get('status')
+    console.log({status})
     if (!schoolId) {
       return NextResponse.json({ error: 'School ID is required' }, { status: 400 });
     }
 
+    const now = new Date();
+    
     const exams_ = await db.query.exams.findMany({
       where: eq(exams.schoolId, schoolId),
       with: {
         examPeriod: true,
         class: true,
         subject: true,
-        examType: true,
+        examType: {
+          columns:{
+            id: true,
+            name: true
+          }
+        },
         examStudents: {
           columns: {
             id: true,
@@ -211,6 +224,15 @@ export async function GET(request: Request) {
         },
       },
     });
+    if(status){
+      const newExams = exams_.filter(
+        (exam) => 
+          (exam.status === status) && 
+          exam.examDate && new Date(exam.examDate) > now
+      );
+      console.log({newExams})
+      return NextResponse.json(newExams, { status: 200 });
+    }
 
     console.log({exams_})
 

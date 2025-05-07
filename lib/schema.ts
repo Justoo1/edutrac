@@ -1,4 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
+import { getTime } from "date-fns";
 import { relations, InferSelectModel } from "drizzle-orm";
 import {
   boolean,
@@ -14,6 +15,7 @@ import {
   timestamp,
   uniqueIndex,
   numeric,
+  time,
 } from "drizzle-orm/pg-core";
 
 // Original tables from the starter kit (renamed and modified for our use case)
@@ -1598,6 +1600,8 @@ export const exams = pgTable("exams", {
   examCode: text("exam_code").notNull(), // e.g., "MATH101"
   academicYear: text("academic_year").notNull().references(() => academicYears.id, { onDelete: "cascade" }),
   term: text("term").notNull().references(() => academicTerms.id, { onDelete: "cascade" }),
+  startTime: time("start_time").notNull().default("09:00:00"),
+  endTime: time("end_time").notNull().default("11:00:00"),
   responsibleStaffId: text("responsible_staff_id").notNull().references(() => staff.id, { onDelete: "no action" }),
   totalMarks: integer("total_marks").notNull().default(100),
   duration: integer("duration"), // in minutes (if applicable)

@@ -50,6 +50,11 @@ interface Staff {
   email: string;
 }
 
+interface Term{
+  id: string,
+  name: string
+}
+
 export default function CreateExamPage() {
     const { data: session } = useSession();
   const router = useRouter();
@@ -60,12 +65,14 @@ export default function CreateExamPage() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [examTypes, setExamTypes] = useState<ExamType[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
+  const [terms, setTerms] = useState<Term[]>([])
   const [formData, setFormData] = useState({
     examCode: "",
     name: "",
     description: "",
     examPeriodId: "",
     subjectId: "",
+    termId: "",
     classId: "",
     staffId: "",
     examTypeId: "",
@@ -94,12 +101,13 @@ export default function CreateExamPage() {
     const fetchData = async () => {
       setIsDataLoading(true);
       try {
-        const [periodsResponse, subjectsResponse, classesResponse, examTypesResponse, staffResponse] = await Promise.all([
+        const [periodsResponse, subjectsResponse, classesResponse, examTypesResponse, staffResponse, termResponse] = await Promise.all([
           fetch(`/api/exam-period?schoolId=${session?.user.schoolId}`),
           fetch(`/api/subjects?schoolId=${session?.user.schoolId}`),
           fetch(`/api/classes?schoolId=${session?.user.schoolId}`),
           fetch(`/api/exam-types?schoolId=${session?.user.schoolId}`),
-          fetch(`/api/teachers?schoolId=${session?.user.schoolId}`)
+          fetch(`/api/teachers?schoolId=${session?.user.schoolId}`),
+          fetch(`/api/schools/${session?.user.schoolId}/academic/terms`)
         ]);
 
         if (!periodsResponse.ok) throw new Error("Failed to fetch exam periods");
@@ -121,6 +129,11 @@ export default function CreateExamPage() {
         if (!staffResponse.ok) throw new Error("Failed to fetch staff");
         const staffData = await staffResponse.json();
         setStaff(Array.isArray(staffData) ? staffData : []);
+
+        if(!termResponse.ok) throw new Error("Failed to fetch staff")
+        const termData = await termResponse.json();
+        setTerms(Array.isArray(termData)? termData : [])
+
       } catch (error) {
         console.error("Error fetching data:", error);
         toast.error("Failed to load required data");
@@ -138,6 +151,12 @@ export default function CreateExamPage() {
     setFormData(prev => ({
       ...prev,
       staffId: value
+    }));
+  };
+  const handleTermChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      termId: value
     }));
   };
 
@@ -247,6 +266,36 @@ export default function CreateExamPage() {
                     placeholder="Exam code will be auto-generated"
                     required
                     />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="name">Term/Semester</Label>
+                <Select
+                  value={formData.termId}
+                  onValueChange={handleTermChange}
+                  disabled={isDataLoading}
+                  required
+                >   
+                  <SelectTrigger>
+                    <SelectValue placeholder={isDataLoading ? "Loading terms..." : "Select term"} />
+                    </SelectTrigger>
+                  <SelectContent>
+                    {isDataLoading ? (
+                      <div className="flex items-center justify-center p-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        </div>
+                    ) : terms.length === 0 ? (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        No term/semester found
+                      </div>
+                    ) : (
+                      terms.map((term) => (
+                        <SelectItem key={term.id} value={term.id}>
+                          {term.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="name">Responsible Staff</Label>

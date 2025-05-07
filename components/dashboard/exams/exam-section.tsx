@@ -53,19 +53,23 @@ import {
   User,
   FileText,
   Upload,
+  UploadIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  generateExamScoresTemplate, 
-  downloadCSV, 
-  formatDateForFileName, 
-  parseScoresCSV, 
-  generateMultiExamScoresTemplate,
-  parseMultiExamScoresCSV 
-} from "@/lib/excel-utils";
+// import { 
+//   generateExamScoresTemplate, 
+//   downloadCSV, 
+//   formatDateForFileName, 
+//   parseScoresCSV, 
+//   generateMultiExamScoresTemplate,
+//   parseMultiExamScoresCSV 
+// } from "@/lib/excel-utils";
 import ExportModal from "./export-modal";
+import ExamScoresExportModal from "./exam-score-modal"
+import BatchUpdateScoresModal from "./update-exam-modal";
+import {initExamStatusScheduler} from "@/lib/scheduler"
 
 interface Student {
   id: string;
@@ -103,7 +107,10 @@ interface Exam {
     name: string;
     level: string;
   };
-  examType?: string;
+  examType?: {
+    id: string,
+    name: string
+  };
   examTypeName?: string;
   totalMarks: number;
   duration?: number;
@@ -123,11 +130,16 @@ interface Exam {
   }[];
 }
 
-interface AllExamSectionProps {
+interface ExamSectionProps {
   schoolId: string;
+  upcoming?: boolean,
+  ongoing?: boolean,
+  completed?: boolean,
+  archived?: boolean,
+  tableTitle: string
 }
 
-export default function AllExamSection({ schoolId }: AllExamSectionProps) {
+export default function ExamSection({ schoolId, upcoming, ongoing, completed, archived, tableTitle }: ExamSectionProps) {
   const router = useRouter();
   const [exams, setExams] = useState<Exam[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -141,11 +153,7 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [exportClassId, setExportClassId] = useState<string | null>(null);
-  const [exportSubjectId, setExportSubjectId] = useState<string | null>(null);
-  const [exportPeriodId, setExportPeriodId] = useState<string | null>(null);
-  const [exportLoading, setExportLoading] = useState(false);
-  const [availableExams, setAvailableExams] = useState<any[]>([]);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   
   // Mock data for demo purposes - these would come from real API calls
   const classOptions = [
@@ -167,15 +175,26 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
   ];
   
   useEffect(() => {
+    initExamStatusScheduler()
     fetchExams();
   }, [schoolId]);
+
+
+  // Handle refresh after updating scores
+  const handleScoresUpdated = () => {
+    toast.success('The exam scores have been successfully updated.');
+    
+    // Refresh the exams list
+    router.refresh();
+  };
   
   const fetchExams = async () => {
     try {
       setIsLoading(true);
       console.log('Fetching exams for school:', schoolId);
+      const url = upcoming ? `/api/exams?schoolId=${schoolId}&status=draft` : completed ? `/api/exams?schoolId=${schoolId}&status=completed` : ongoing ? `/api/exams?schoolId=${schoolId}&status=in progress` : archived ? `/api/exams?schoolId=${schoolId}&?status=achived` : `/api/exams?schoolId=${schoolId}`
       
-      const response = await fetch(`/api/exams?schoolId=${schoolId}`);
+      const response = await fetch(url);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -184,6 +203,7 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
       }
       
       const data = await response.json();
+      console.log({data})
       console.log('Exams fetched successfully:', data.length);
       setExams(data);
     } catch (error) {
@@ -347,7 +367,7 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
     try {
       // Format date for display and filename
       const formattedDate = formatDateTime(selectedExam.examDate, false);
-      const dateForFilename = formatDateForFileName(selectedExam.examDate);
+      // const dateForFilename = formatDateForFileName(selectedExam.examDate);
       
       // Create content for simple CSV export
       const headerRow = "Index Number,Student Name,Score,Remarks";
@@ -367,10 +387,10 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
       ].join('\n');
       
       // Create filename with exam info
-      const filename = `${selectedExam.subject.code || 'SUBJ'}_${selectedExam.class.name.replace(/\s+/g, '')}_${dateForFilename}_scores.csv`;
+      // const filename = `${selectedExam.subject.code || 'SUBJ'}_${selectedExam.class.name.replace(/\s+/g, '')}_${dateForFilename}_scores.csv`;
       
       // Trigger download
-      downloadCSV(filename, csvContent);
+      // downloadCSV(filename, csvContent);
       
       toast.success("Exam template exported successfully");
     } catch (error) {
@@ -425,7 +445,7 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <CardTitle>All Exams</CardTitle>
+              <CardTitle>{tableTitle}</CardTitle>
               <CardDescription>
                 View and manage all examination records
               </CardDescription>
@@ -448,7 +468,12 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
                 <Download className="mr-2 h-4 w-4" />
                 Export
               </Button>
+              <Button variant="outline"  onClick={() => setIsUpdateModalOpen(true)}>
+                <UploadIcon className="mr-2 h-4 w-4" />
+                Update Score
+              </Button>
             </div>
+            
           </div>
         </CardHeader>
         <CardContent>
@@ -577,7 +602,7 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={handleExportSingleExam}
+                    onClick={() => setIsExportModalOpen(true)}
                   >
                     <Download className="mr-2 h-4 w-4" /> Export
                   </Button>
@@ -617,7 +642,7 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
                       </div>
                       <div>
                         <h3 className="text-sm font-medium text-muted-foreground mb-1">Exam Type</h3>
-                        <p>{selectedExam.examTypeName || "Standard Exam"}</p>
+                        <p>{selectedExam.examType?.name || "Standard Exam"}</p>
                       </div>
                     </div>
                     <div className="space-y-4">
@@ -665,13 +690,13 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
                     <div className="space-y-4 mt-4">
                       <div className="flex justify-between items-center">
                         <h3 className="text-lg font-semibold">Students List</h3>
-                        <Button 
+                        {/* <Button 
                           variant="outline" 
                           size="sm"
                           onClick={handleExportSingleExam}
                         >
                           <Download className="h-4 w-4 mr-2" /> Export Template
-                        </Button>
+                        </Button> */}
                       </div>
                       <div className="rounded-md border">
                         <Table>
@@ -680,8 +705,8 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
                               <TableHead>ID</TableHead>
                               <TableHead>Student Name</TableHead>
                               <TableHead>Status</TableHead>
-                              <TableHead>Score</TableHead>
-                              <TableHead>Grade</TableHead>
+                              {/* <TableHead>Score</TableHead> */}
+                              {/* <TableHead>Grade</TableHead> */}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -696,12 +721,12 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
                                     {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
                                   </Badge>
                                 </TableCell>
-                                <TableCell>
+                                {/* <TableCell>
                                   {student.score !== undefined ? student.score : "-"}
-                                </TableCell>
-                                <TableCell>
+                                </TableCell> */}
+                                {/* <TableCell>
                                   {student.grade || "-"}
-                                </TableCell>
+                                </TableCell> */}
                               </TableRow>
                             ))}
                           </TableBody>
@@ -717,7 +742,7 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
                       <div className="mt-4 flex justify-center gap-2">
                         <Button 
                           variant="outline" 
-                          onClick={handleExportSingleExam}
+                          onClick={() => setIsUpdateModalOpen(true)}
                           disabled={isUploading}
                         >
                           {isUploading ? (
@@ -727,13 +752,13 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
                           )}
                           Upload Scores
                         </Button>
-                        <Button 
+                        {/* <Button 
                           variant="outline"
                           onClick={handleImportScores}
                         >
                           <Upload className="h-4 w-4 mr-2" />
                           Import Scores
-                        </Button>
+                        </Button> */}
                       </div>
                       {/* Hidden file input */}
                       <input
@@ -749,7 +774,7 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
                     <div className="space-y-4 mt-4">
                       <div className="flex justify-between items-center">
                         <h3 className="text-lg font-semibold">Exam Scores</h3>
-                        <div className="flex gap-2">
+                        {/* <div className="flex gap-2">
                           <Button 
                             variant="outline" 
                             size="sm"
@@ -769,9 +794,9 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
                             onClick={handleImportScores}
                           >
                             <Upload className="h-4 w-4 mr-2" />
-                            Import Scores
+                            Import Scores 00
                           </Button>
-                        </div>
+                        </div> */}
                       </div>
                       {/* Hidden file input */}
                       <input
@@ -788,10 +813,10 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
                             <TableRow>
                               <TableHead>ID</TableHead>
                               <TableHead>Student Name</TableHead>
-                              <TableHead>Raw Score</TableHead>
-                              <TableHead>Scaled Score</TableHead>
-                              <TableHead>Grade</TableHead>
-                              <TableHead>Remarks</TableHead>
+                              <TableHead>Score</TableHead>
+                              {/* <TableHead>Scaled Score</TableHead> */}
+                              {/* <TableHead>Grade</TableHead> */}
+                              {/* <TableHead>Remarks</TableHead> */}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -804,9 +829,9 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
                                   </TableCell>
                                   <TableCell>{student?.name || "Unknown"}</TableCell>
                                   <TableCell>{score.rawScore}</TableCell>
-                                  <TableCell>{score.scaledScore}</TableCell>
-                                  <TableCell>{score.gradeId}</TableCell>
-                                  <TableCell>{score.remarks || "-"}</TableCell>
+                                  {/* <TableCell>{score.scaledScore}</TableCell> */}
+                                  {/* <TableCell>{score.gradeId}</TableCell> */}
+                                  {/* <TableCell>{score.remarks || "-"}</TableCell> */}
                                 </TableRow>
                               );
                             })}
@@ -829,6 +854,17 @@ export default function AllExamSection({ schoolId }: AllExamSectionProps) {
         schoolId={schoolId}
         onExamsUpdated={fetchExams}
       />
+      <BatchUpdateScoresModal
+        open={isUpdateModalOpen}
+        onOpenChange={setIsUpdateModalOpen}
+        onSuccess={handleScoresUpdated}
+        schoolId={schoolId}
+      />
+      {/* <ExamScoresExportModal
+      isOpen={isExportModalOpen}
+      onClose={setIsExportModalOpen}
+      schoolId={schoolId}
+      /> */}
 
       {/* Hidden file input for legacy single-exam upload */}
       <input
