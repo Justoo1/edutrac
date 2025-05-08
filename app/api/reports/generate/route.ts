@@ -1,4 +1,4 @@
-// pages/api/reports/generate.ts
+// app/api/reports/generate/route.ts
 
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
@@ -7,8 +7,11 @@ import { generateTerminalReports } from '@/lib/services/terminalReportService';
 export async function POST(
   req: Request,
 ) {
+  console.log("Terminal report generation API called");
+  
   // Only allow POST requests
   if (req.method !== 'POST') {
+    console.log("Method not allowed");
     return NextResponse.json({ success: false, message: 'Method Not Allowed' }, {status: 405})
   }
 
@@ -17,11 +20,13 @@ export async function POST(
     const session = await getSession();
     
     if (!session) {
+        console.log("User not authenticated");
         return NextResponse.json({ success: false, message: 'Not authenticated' }, {status: 401})
     }
     
     // Check authorization - only admin and authorized staff can generate reports
     if (session.user.role !== 'admin' && session.user.role !== 'teacher') {
+        console.log(`User ${session.user.id} with role ${session.user.role} not authorized`);
         return NextResponse.json({ success: false, message: 'Not authorized' }, {status: 403})
     }
     
@@ -29,25 +34,22 @@ export async function POST(
     const body = await req.json()
     const { schoolId, classId, academicYearId, academicTermId } = body;
     
+    console.log(`Generating reports for school: ${schoolId}, class: ${classId}, year: ${academicYearId}, term: ${academicTermId}`);
+    
     // Validate required parameters
     if (!schoolId || !classId || !academicYearId || !academicTermId) {
-        return NextResponse.json({ success: false, message: 'Required parameters missing. Please provide schoolId, classId, academicYearId, and academicTermId' }, {status: 400});
-    }
-    
-    // If teacher, check if they are authorized for this class
-    if (session.user.role === 'teacher') {
-      // For a teacher, we'd check if they're assigned to this class
-      // This would depend on your specific authorization model
-      // This is just a placeholder example
-      const isAuthorized = await isTeacherAuthorizedForClass(session.user.id, classId);
-      
-      if (!isAuthorized) {
-        return NextResponse.json({ success: false, message: 'You are not authorized to generate reports for this class' }, {status: 403})
-      }
+        console.log("Missing required parameters");
+        return NextResponse.json({ 
+          success: false, 
+          message: 'Required parameters missing. Please provide schoolId, classId, academicYearId, and academicTermId' 
+        }, {status: 400});
     }
     
     // Generate terminal reports
+    console.log("Calling generateTerminalReports service");
     const result = await generateTerminalReports(schoolId, classId, academicYearId, academicTermId);
+    
+    console.log("Report generation result:", result);
     
     // Return result
     if (result.success) {
@@ -67,7 +69,7 @@ export async function POST(
 // Helper function to check teacher authorization
 async function isTeacherAuthorizedForClass(teacherId: string, classId: string): Promise<boolean> {
   // This would be implemented based on your specific data model
-  // For example, checking if the teacher is a class teacher or teaches a subject in this class
+  console.log(`Checking if teacher ${teacherId} is authorized for class ${classId}`);
   // For now, we'll just return true as a placeholder
   return true;
 }
