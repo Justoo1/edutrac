@@ -6,6 +6,7 @@ import {
   BookOpen,
   Calendar,
   FileText,
+  BarChart2,
   Home,
   MessageSquare,
   School,
@@ -82,9 +83,9 @@ export function AppSidebar({ school }: AppSidebarProps) {
       icon: FileText,
     },
     {
-      title: "Results",
-      href: "/results",
-      icon: FileText,
+      title: "Reports",
+      href: "/exams/report",
+      icon: BarChart2,
     },
     {
       title: "Finance",

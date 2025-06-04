@@ -46,6 +46,7 @@ import {
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
+import { PerformanceChart } from "./performance-chart"
 
 // Define interfaces for the academic data
 interface Grade {
@@ -53,6 +54,11 @@ interface Grade {
   score: number;
   grade: string;
   remarks: string;
+  batchPosition: number;
+  classPosition: number;
+  classScore: string;
+  examScore: string;
+  totalScore: string;
 }
 
 interface TermGrades {
@@ -134,6 +140,7 @@ export function ViewStudentRecords({ isOpen, onClose, studentId, schoolId, stude
       }
       
       const data = await response.json()
+      console.log({data})
       setAcademicData(data)
     } catch (err) {
       console.error("Error fetching student records:", err)
@@ -156,21 +163,21 @@ export function ViewStudentRecords({ isOpen, onClose, studentId, schoolId, stude
             { 
               term: "First Term", 
               subjects: [
-                { name: "Mathematics", score: 85, grade: "A", remarks: "Good performance" },
-                { name: "English Language", score: 78, grade: "B", remarks: "Satisfactory" },
-                { name: "Science", score: 92, grade: "A+", remarks: "Excellent" },
-                { name: "Social Studies", score: 75, grade: "B", remarks: "Satisfactory" },
-                { name: "ICT", score: 88, grade: "A", remarks: "Good performance" }
+                { name: "Mathematics", score: 85, grade: "A", remarks: "Good performance" , batchPosition: 1, classPosition: 1, classScore: "78", examScore: "85", totalScore: "163"},
+                { name: "English Language", score: 78, grade: "B", remarks: "Satisfactory" , batchPosition: 2, classPosition: 2, classScore: "78", examScore: "78", totalScore: "156"},
+                { name: "Science", score: 92, grade: "A+", remarks: "Excellent" , batchPosition: 3, classPosition: 3, classScore: "78", examScore: "92", totalScore: "170"},
+                { name: "Social Studies", score: 75, grade: "B", remarks: "Satisfactory", batchPosition: 4, classPosition: 4, classScore: "78", examScore: "75", totalScore: "155"},
+                { name: "ICT", score: 88, grade: "A", remarks: "Good performance", batchPosition: 5, classPosition: 5, classScore: "78", examScore: "88", totalScore: "166"}
               ] 
             },
             { 
               term: "Second Term", 
               subjects: [
-                { name: "Mathematics", score: 82, grade: "A", remarks: "Improved" },
-                { name: "English Language", score: 80, grade: "A", remarks: "Improved" },
-                { name: "Science", score: 90, grade: "A+", remarks: "Excellent" },
-                { name: "Social Studies", score: 78, grade: "B", remarks: "Improved" },
-                { name: "ICT", score: 85, grade: "A", remarks: "Good performance" }
+                { name: "Mathematics", score: 82, grade: "A", remarks: "Improved", batchPosition: 6, classPosition: 6, classScore: "78", examScore: "82", totalScore: "160"},
+                { name: "English Language", score: 80, grade: "A", remarks: "Improved", batchPosition: 7, classPosition: 7, classScore: "78", examScore: "80", totalScore: "158"},
+                { name: "Science", score: 90, grade: "A+", remarks: "Excellent", batchPosition: 8, classPosition: 8, classScore: "78", examScore: "90", totalScore: "168"},
+                { name: "Social Studies", score: 78, grade: "B", remarks: "Improved", batchPosition: 9, classPosition: 9, classScore: "78", examScore: "78", totalScore: "156"},
+                { name: "ICT", score: 85, grade: "A", remarks: "Good performance", batchPosition: 10, classPosition: 10, classScore: "78", examScore: "85", totalScore: "163"}
               ] 
             }
           ],
@@ -319,7 +326,7 @@ export function ViewStudentRecords({ isOpen, onClose, studentId, schoolId, stude
                           Academic Performance
                         </CardTitle>
                         <CardDescription>
-                          Student's grades across all subjects and terms
+                          Student&apos;s grades across all subjects and terms
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="p-0">
@@ -348,8 +355,8 @@ export function ViewStudentRecords({ isOpen, onClose, studentId, schoolId, stude
                                     </TableCell>
                                     <TableCell className="text-center">
                                       <div className="flex flex-col items-center">
-                                        <span className="font-medium">{subject.score}%</span>
-                                        <Progress value={subject.score} className="h-1.5 w-16" />
+                                        <span className="font-medium">{subject.totalScore}%</span>
+                                        <Progress value={Number(subject.totalScore)} className="h-1.5 w-16" />
                                       </div>
                                     </TableCell>
                                     <TableCell className="text-center">
@@ -391,8 +398,12 @@ export function ViewStudentRecords({ isOpen, onClose, studentId, schoolId, stude
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="h-[200px] flex items-center justify-center bg-muted/30 rounded-md">
-                          <p className="text-muted-foreground text-sm">Performance chart will be displayed here</p>
+                        <div className="flex items-center justify-center bg-muted/30 rounded-md">
+                          <PerformanceChart 
+                            grades={academicData.grades}
+                            studentAverage={academicData.student.studentAverage}
+                            classAverage={academicData.student.classAverage}
+                          />
                         </div>
                       </CardContent>
                     </Card>

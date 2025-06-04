@@ -1,8 +1,22 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import db from "@/lib/db";
-import { students, schools, attendance, assessments, assessmentResults, subjects } from "@/lib/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { 
+  students, 
+  schools, 
+  attendance, 
+  subjects,
+  exams,
+  examScores,
+  termReports,
+  termReportDetails,
+  gradeSystem,
+  classEnrollments,
+  academicYears,
+  academicTerms,
+  examTypes
+} from "@/lib/schema";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 
 export async function GET(
   req: Request,
@@ -28,11 +42,10 @@ export async function GET(
 
     // Fetch the student to verify existence and permissions
     const student = await db.query.students.findFirst({
-      where: (students, { and, eq }) => 
-        and(
-          eq(students.id, id),
-          eq(students.schoolId, schoolId)
-        ),
+      where: and(
+        eq(students.id, id),
+        eq(students.schoolId, schoolId)
+      ),
     });
 
     if (!student) {
@@ -41,22 +54,16 @@ export async function GET(
 
     // Verify that the user has permission for this school
     const school = await db.query.schools.findFirst({
-      where: (schools, { eq }) => eq(schools.id, schoolId),
+      where: eq(schools.id, schoolId),
     });
 
     if (!school || school.adminId !== session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch real data from database
-    // 1. Academic records (grades)
-    // 2. Attendance records
-    // 3. Assignment records
-    
     // Get the student's enrollment classes to know which classes to query
     const enrollments = await db.query.classEnrollments.findMany({
-      where: (classEnrollments, { eq }) => 
-        eq(classEnrollments.studentId, id),
+      where: eq(classEnrollments.studentId, id),
       with: {
         class: true
       }
@@ -64,55 +71,163 @@ export async function GET(
     
     const classIds = enrollments.map(enrollment => enrollment.classId);
     
-    // Fetch grades (assessment results) grouped by term
-    const assessmentResultsData = await db.query.assessmentResults.findMany({
-      where: (assessmentResults, { eq }) => 
-        eq(assessmentResults.studentId, id),
-      with: {
-        assessment: true
-      },
-      orderBy: (assessmentResults, { desc }) => [
-        desc(assessmentResults.createdAt)
-      ]
+    if (classIds.length === 0) {
+      return NextResponse.json({
+        student: {
+          id: student.id,
+          name: [student.firstName, student.middleName, student.lastName].filter(Boolean).join(' '),
+          studentId: student.studentId || `ST-${id.substring(0, 6)}`,
+          classAverage: 0,
+          studentAverage: 0,
+          classPosition: "N/A"
+        },
+        grades: [],
+        attendance: {
+          presentDays: 0,
+          absentDays: 0,
+          lateDays: 0,
+          totalDays: 0,
+          percentage: 0,
+          months: []
+        },
+        assignments: []
+      });
+    }
+
+    // Fetch all subjects for the school
+    const subjectsData = await db.query.subjects.findMany({
+      where: eq(subjects.schoolId, schoolId)
     });
-    
-    // Fetch all subjects
-    const subjectsData = await db.query.subjects.findMany();
-    
-    // Group assessment results by term
+
+    // Fetch academic years and terms for context
+    const academicYearsData = await db.query.academicYears.findMany({
+      where: eq(academicYears.schoolId, schoolId),
+      orderBy: desc(academicYears.createdAt)
+    });
+
+    const academicTermsData = await db.query.academicTerms.findMany({
+      where: eq(academicTerms.schoolId, schoolId)
+    });
+
+    // Fetch term reports for the student
+    const termReportsData = await db.query.termReports.findMany({
+      where: eq(termReports.studentId, id),
+      with: {
+        details: {
+          with: {
+            subject: true,
+            grade: true
+          }
+        },
+        academicYear: true,
+        academicTerm: true
+      },
+      orderBy: desc(termReports.createdAt)
+    });
+
+    // Group grades by term
     const termGrades: { [key: string]: any } = {};
     
-    for (const result of assessmentResultsData) {
-      if (!result.assessment) continue;
+    for (const termReport of termReportsData) {
+      const termKey = `${termReport.academicYear?.name || 'Unknown Year'} - ${termReport.academicTerm?.name || 'Unknown Term'}`;
       
-      const assessment = result.assessment as any; // Type assertion to avoid TS errors
-      const term = assessment.term;
-      
-      if (!termGrades[term]) {
-        termGrades[term] = {
-          term: term,
+      if (!termGrades[termKey]) {
+        termGrades[termKey] = {
+          term: termKey,
+          academicYear: termReport.academicYear?.name || 'Unknown Year',
+          academicTerm: termReport.academicTerm?.name || 'Unknown Term',
+          totalScore: termReport.totalMarks,
+          averageScore: termReport.averageScore,
+          rank: termReport.rank,
           subjects: []
         };
       }
       
-      // Find subject name
-      const subject = subjectsData.find(s => s.id === assessment.subjectId);
-      
-      termGrades[term].subjects.push({
-        name: subject?.name || 'Unknown Subject',
-        score: result.score,
-        grade: result.grade || calculateGhanaianGrade(result.score),
-        remarks: result.feedback || getRemarkForGhanaianGrade(result.grade || calculateGhanaianGrade(result.score))
-      });
+      for (const detail of termReport.details) {
+        termGrades[termKey].subjects.push({
+          name: detail.subject?.name || 'Unknown Subject',
+          classScore: detail.classScore,
+          examScore: detail.examScore,
+          totalScore: detail.totalScore,
+          grade: detail.grade?.gradeName || 'NG',
+          remarks: detail.grade?.interpretation || getRemarkForScore(Number(detail.totalScore)),
+          classPosition: detail.classPosition,
+          batchPosition: detail.batchPosition,
+          coursePosition: detail.coursePosition
+        });
+      }
     }
-    
+
+    // Fetch exam scores for assignments/projects (non-terminal exams)
+    const examsList = await db.query.exams.findMany({
+      where: and(
+        inArray(exams.classId, classIds),
+        eq(exams.schoolId, schoolId)
+      ),
+      with: {
+        examType: true,
+        subject: true
+      },
+      orderBy: desc(exams.createdAt)
+    });
+
+    // Get exam scores for this student
+    const examIds = examsList.map(exam => exam.id);
+    const examScoresData = examIds.length > 0 ? await db.query.examScores.findMany({
+      where: and(
+        eq(examScores.studentId, id),
+        inArray(examScores.examId, examIds)
+      ),
+      with: {
+        exam: {
+          with: {
+            examType: true,
+            subject: true
+          }
+        }
+      },
+      orderBy: desc(examScores.gradedAt)
+    }) : [];
+
+    // Get grade information separately if needed
+    const gradeIds = examScoresData
+  .map(score => score.gradeId)
+  .filter((id): id is number => id !== null && id !== undefined);
+    const gradesData = gradeIds.length > 0 ? await db.query.gradeSystem.findMany({
+      where: inArray(gradeSystem.id, gradeIds)
+    }) : [];
+
+    // Filter for assignment-type exams (non-terminal exams)
+    const assignments = examScoresData
+      .filter(score => {
+        const examType = score.exam?.examType;
+        return examType && !examType.isSystem && 
+               !examType.name.toLowerCase().includes('end of term') &&
+               !examType.name.toLowerCase().includes('final') &&
+               !examType.name.toLowerCase().includes('terminal');
+      })
+      .map(score => {
+        // Find the grade for this score
+        const grade = gradesData.find(g => g.id === score.gradeId);
+        
+        return {
+          id: score.exam?.id || '',
+          title: score.exam?.name || 'Unknown Assignment',
+          dueDate: score.exam?.examDate ? new Date(score.exam.examDate).toISOString().split('T')[0] : null,
+          submittedDate: score.gradedAt ? new Date(score.gradedAt).toISOString().split('T')[0] : null,
+          score: Number(score.rawScore),
+          totalMarks: score.exam?.totalMarks || 0,
+          status: score.rawScore ? 'submitted' : 'pending',
+          subject: score.exam?.subject?.name || 'Unknown',
+          grade: grade?.gradeName || 'NG',
+          remarks: score.remarks || grade?.interpretation || 'No remarks'
+        };
+      });
+
     // Fetch attendance records
     const attendanceRecords = await db.query.attendance.findMany({
-      where: (attendance, { eq }) => 
-        eq(attendance.studentId, id),
-      orderBy: (attendance, { desc }) => [
-        desc(attendance.date)
-      ]
+      where: eq(attendance.studentId, id),
+      orderBy: desc(attendance.date)
     });
     
     // Calculate attendance statistics
@@ -127,7 +242,7 @@ export async function GET(
     
     for (const record of attendanceRecords) {
       const date = new Date(record.date);
-      const month = date.toLocaleString('default', { month: 'long' });
+      const month = date.toLocaleString('default', { month: 'long', year: 'numeric' });
       
       if (!monthlyAttendance[month]) {
         monthlyAttendance[month] = {
@@ -147,70 +262,26 @@ export async function GET(
       }
     }
     
-    // Fetch assignments (assessments with type 'assignment' or 'homework')
-    const assignmentsData = await db.query.assessments.findMany({
-      where: (assessments, { and, inArray, eq, or }) => 
-        and(
-          inArray(assessments.classId, classIds),
-          or(
-            eq(assessments.type, 'assignment_1'),
-            eq(assessments.type, 'assignment_2'),
-            eq(assessments.type, 'assignment_3'),
-            eq(assessments.type, 'project')
-          )
-        ),
-      orderBy: (assessments, { desc }) => [
-        desc(assessments.date)
-      ]
-    });
-    
-    // Find student's results for these assignments
-    const assignmentResults = await db.query.assessmentResults.findMany({
-      where: (assessmentResults, { and, eq, inArray }) => 
-        and(
-          eq(assessmentResults.studentId, id),
-          inArray(
-            assessmentResults.assessmentId, 
-            assignmentsData.map(a => a.id)
-          )
-        )
-    });
-    
-    // Map assignments with their results
-    const assignments = assignmentsData.map(assignment => {
-      const result = assignmentResults.find(r => r.assessmentId === assignment.id);
-      
-      // Find subject name
-      const subject = subjectsData.find(s => s.id === (assignment as any).subjectId);
-      
-      return {
-        id: assignment.id,
-        title: assignment.title,
-        dueDate: (assignment as any).date ? new Date((assignment as any).date).toISOString().split('T')[0] : null,
-        submittedDate: result ? new Date(result.createdAt).toISOString().split('T')[0] : null,
-        score: result?.score || null,
-        totalMarks: (assignment as any).totalMarks,
-        status: result ? 'submitted' : 'pending',
-        subject: subject?.name || 'Unknown'
-      };
-    });
-    
-    // Calculate student's average score
+    // Calculate student's average score from term reports
     let totalScore = 0;
-    let totalAssessments = 0;
+    let totalTerms = 0;
     
-    for (const result of assessmentResultsData) {
-      totalScore += result.score;
-      totalAssessments++;
+    for (const termReport of termReportsData) {
+      if (termReport.averageScore && Number(termReport.averageScore) > 0) {
+        totalScore += Number(termReport.averageScore);
+        totalTerms++;
+      }
     }
     
-    const studentAverage = totalAssessments > 0 ? Math.round(totalScore / totalAssessments) : 0;
+    const studentAverage = totalTerms > 0 ? Math.round(totalScore / totalTerms) : 0;
     
-    // For class average and position, in a real app we would query all students in the class
-    // and calculate these values
-    // For now, we'll estimate with simple logic
-    const classAverage = Math.round(studentAverage * 0.95); // Just an estimate
-    const classPosition = "N/A"; // Would be calculated by ranking all students
+    // Get class average from the most recent term report
+    const latestTermReport = termReportsData[0];
+    const classAverage = latestTermReport ? 
+      Math.round(Number(latestTermReport.averageScore) * 0.95) : // Estimate
+      studentAverage * 0.95;
+    
+    const classPosition = latestTermReport?.rank || "N/A";
     
     // Build the student's full name
     const studentName = [student.firstName, student.middleName, student.lastName]
@@ -226,7 +297,7 @@ export async function GET(
         id: student.id,
         name: studentName,
         studentId: displayStudentId,
-        classAverage: classAverage,
+        classAverage: Math.round(classAverage),
         studentAverage: studentAverage,
         classPosition: classPosition
       },
@@ -249,7 +320,18 @@ export async function GET(
   }
 }
 
-// Ghana Basic Education Grading System
+// Helper function to get remarks based on score
+function getRemarkForScore(score: number): string {
+  if (score >= 80) return "Excellent";
+  if (score >= 70) return "Very Good";
+  if (score >= 60) return "Good";
+  if (score >= 50) return "Credit";
+  if (score >= 40) return "Pass";
+  if (score > 0) return "Needs Improvement";
+  return "No Score";
+}
+
+// Ghana Basic Education Grading System (keeping for backward compatibility)
 function calculateGhanaianGrade(score: number): string {
   if (score >= 80) return "1";    // Excellent
   if (score >= 70) return "2";    // Very Good
