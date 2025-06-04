@@ -162,12 +162,12 @@ export function PrintStudent({ isOpen, onClose, studentId, schoolId }: PrintStud
   
   // Handle print functionality
   const handlePrint = useReactToPrint({
-    content: () => printRef.current,
-    documentTitle: `Student_${studentData?.student?.studentId || studentId}`,
-    onAfterPrint: () => {
-      console.log("Print completed")
-    },
-  })
+  contentRef: printRef, // Changed from 'content' to 'contentRef'
+  documentTitle: `Student_${studentData?.student?.studentId || studentId}`,
+  onAfterPrint: () => {
+    console.log("Print completed")
+  },
+})
   
   // Format full name
   const getFullName = (student: Student) => {
@@ -243,7 +243,7 @@ export function PrintStudent({ isOpen, onClose, studentId, schoolId }: PrintStud
                     <Download className="h-4 w-4 mr-2" />
                     Save as PDF
                   </Button>
-                  <Button onClick={handlePrint}>
+                  <Button onClick={handlePrint} disabled={!studentData}>
                     <Printer className="h-4 w-4 mr-2" />
                     Print
                   </Button>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { 
   Dialog,
   DialogContent,
@@ -47,6 +47,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
 import { PerformanceChart } from "./performance-chart"
+import { useReactToPrint } from "react-to-print"
 
 // Define interfaces for the academic data
 interface Grade {
@@ -120,12 +121,21 @@ export function ViewStudentRecords({ isOpen, onClose, studentId, schoolId, stude
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("grades")
   const [academicData, setAcademicData] = useState<AcademicData | null>(null)
+  const printRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (isOpen && studentId) {
       fetchStudentRecords()
     }
   }, [isOpen, studentId, schoolId])
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef, // Changed from 'content' to 'contentRef'
+    documentTitle: `Student_${studentName || studentId}`,
+    onAfterPrint: () => {
+      console.log("Print completed")
+    },
+  })
   
   const fetchStudentRecords = async () => {
     setLoading(true)
@@ -232,10 +242,6 @@ export function ViewStudentRecords({ isOpen, onClose, studentId, schoolId, stude
     }
   }
 
-  const handlePrint = () => {
-    window.print()
-  }
-
   const handleDownloadPDF = () => {
     try {
       // In a real implementation, this would create a PDF using a library
@@ -302,7 +308,7 @@ export function ViewStudentRecords({ isOpen, onClose, studentId, schoolId, stude
                   </CardContent>
                 </Card>
                 
-                <Tabs defaultValue="grades" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <Tabs defaultValue="grades" value={activeTab} onValueChange={setActiveTab} className="w-full" ref={printRef}>
                   <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="grades">
                       <BookOpen className="h-4 w-4 mr-2" />
