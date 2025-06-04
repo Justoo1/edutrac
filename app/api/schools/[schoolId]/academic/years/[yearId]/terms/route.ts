@@ -1,14 +1,14 @@
-// app/api/schools/[schoolId]/academic/terms/route.ts
+// app/api/schools/[schoolId]/academic/years/[yearId]/terms/route.ts
 
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import db from '@/lib/db';
-import { academicTerms } from '@/lib/schema';
+import { academicTerms, academicYears } from '@/lib/schema';
 import { eq, and, asc } from 'drizzle-orm';
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ schoolId: string }> }
+  { params }: { params: { schoolId: string; yearId: string } }
 ) {
   try {
     // Check authentication
@@ -21,11 +21,11 @@ export async function GET(
       );
     }
     
-    const { schoolId } = await params;
+    const { schoolId, yearId } = params;
     
-    if (!schoolId) {
+    if (!schoolId || !yearId) {
       return NextResponse.json(
-        { success: false, message: 'School ID is required' },
+        { success: false, message: 'School ID and Year ID are required' },
         { status: 400 }
       );
     }
@@ -38,28 +38,29 @@ export async function GET(
       );
     }
     
-    // Get URL query parameters
-    const url = new URL(req.url);
-    const academicYearId = url.searchParams.get('academicYearId');
+    // Get year details to verify it belongs to the school
+    const year = await db.query.academicYears.findFirst({
+      where: and(
+        eq(academicYears.id, yearId),
+        eq(academicYears.schoolId, schoolId)
+      )
+    });
     
-    let terms;
-    
-    if (academicYearId) {
-      // Get terms for a specific academic year
-      terms = await db.query.academicTerms.findMany({
-        where: and(
-          eq(academicTerms.schoolId, schoolId),
-          eq(academicTerms.academicYearId, academicYearId)
-        ),
-        orderBy: [asc(academicTerms.termNumber)]
-      });
-    } else {
-      // Get all terms for the school
-      terms = await db.query.academicTerms.findMany({
-        where: eq(academicTerms.schoolId, schoolId),
-        orderBy: [asc(academicTerms.academicYearId), asc(academicTerms.termNumber)]
-      });
+    if (!year) {
+      return NextResponse.json(
+        { success: false, message: 'Academic year not found or does not belong to this school' },
+        { status: 404 }
+      );
     }
+    
+    // Get terms for this academic year
+    const terms = await db.query.academicTerms.findMany({
+      where: and(
+        eq(academicTerms.academicYearId, yearId),
+        eq(academicTerms.schoolId, schoolId)
+      ),
+      orderBy: [asc(academicTerms.termNumber)]
+    });
     
     return NextResponse.json(terms);
   } catch (error) {

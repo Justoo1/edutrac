@@ -372,6 +372,11 @@ async function updateTermResults(schoolId: string, exam: any, processedResults: 
       // Calculate total score (CA + Exam)
       const totalScore = totalCAScore + (result.convertedScore || 0);
       
+      console.log(`Total Score Calculation for student ${result.studentId}:`);
+      console.log(`- CA Score: ${totalCAScore}`);
+      console.log(`- Exam Score: ${result.convertedScore || 0}`);
+      console.log(`- Total Score: ${totalScore}`);
+      
       // Get grade information based on total score
       const gradeInfo = getGhanaianGrade(totalScore);
       

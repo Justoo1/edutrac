@@ -584,132 +584,6 @@ export const attendance = pgTable(
   },
 );
 
-// Assessments (exams, quizzes, etc.)
-export const assessments = pgTable(
-  "assessments",
-  {
-    id: text("id")
-      .primaryKey()
-      .$defaultFn(() => createId()),
-    schoolId: text("schoolId").references(() => schools.id, {
-      onDelete: "cascade",
-      onUpdate: "cascade",
-    }),
-    subjectId: text("subjectId").references(() => subjects.id, {
-      onDelete: "cascade",
-      onUpdate: "cascade",
-    }),
-    classId: text("classId").references(() => classes.id, {
-      onDelete: "cascade",
-      onUpdate: "cascade",
-    }),
-    academicYearId: text("academicYearId").references(() => academicYears.id, {
-      onDelete: "cascade",
-      onUpdate: "cascade",
-    }),
-    academicTermId: text("academicTermId").references(() => academicTerms.id, {
-      onDelete: "cascade",
-      onUpdate: "cascade",
-    }),
-    title: text("title").notNull(),
-    description: text("description"),
-    type: text("type", { 
-      enum: [
-        "class_test_1", 
-        "class_test_2", 
-        "class_test_3", 
-        "class_test_4", 
-        "class_test_5",
-        "quiz_1", 
-        "quiz_2", 
-        "quiz_3", 
-        "quiz_4", 
-        "quiz_5",
-        "assignment_1",
-        "assignment_2",
-        "assignment_3",
-        "project",
-        "mid_term", 
-        "end_of_term"
-      ] 
-    }).notNull(),
-    category: text("category").default("continuous_assessment").notNull(), // continuous_assessment, final_exam
-    totalMarks: real("totalMarks").notNull(),
-    passMark: real("passMark"),
-    weight: real("weight"), // How much this contributes to final grade
-    date: timestamp("date", { mode: "date" }),
-    academicYear: text("academicYear").notNull(),
-    term: text("term").notNull(),
-    percentageConfigId: text("percentageConfigId").references(() => examPercentageConfigs.id, {
-      onDelete: "set null",
-      onUpdate: "cascade",
-    }),
-    status: text("status").default("active").notNull(), // active, completed, archived
-    gradingComplete: boolean("gradingComplete").default(false).notNull(),
-    createdBy: text("createdBy").references(() => staff.id, {
-      onDelete: "set null",
-      onUpdate: "cascade",
-    }),
-    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt", { mode: "date" })
-      .notNull()
-      .$onUpdate(() => new Date()),
-  },
-  (table) => {
-    return {
-      schoolIdIdx: index().on(table.schoolId),
-      subjectIdIdx: index().on(table.subjectId),
-      classIdIdx: index().on(table.classId),
-      academicYearIdIdx: index().on(table.academicYearId),
-      academicTermIdIdx: index().on(table.academicTermId),
-      percentageConfigIdx: index().on(table.percentageConfigId),
-    };
-  },
-);
-
-// Assessment results
-export const assessmentResults = pgTable(
-  "assessmentResults",
-  {
-    id: text("id")
-      .primaryKey()
-      .$defaultFn(() => createId()),
-    assessmentId: text("assessmentId")
-      .notNull()
-      .references(() => assessments.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      }),
-    studentId: text("studentId")
-      .notNull()
-      .references(() => students.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      }),
-    score: real("score").notNull(),
-    convertedScore: real("convertedScore"), // Score after applying percentage conversion
-    grade: text("grade"), // 1, 2, 3, etc.
-    remark: text("remark"), // Excellent, Very Good, etc.
-    position: integer("position"), // Rank in class
-    feedback: text("feedback"),
-    recordedBy: text("recordedBy").references(() => staff.id, {
-      onDelete: "set null",
-      onUpdate: "cascade",
-    }),
-    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
-    updatedAt: timestamp("updatedAt", { mode: "date" })
-      .notNull()
-      .$onUpdate(() => new Date()),
-  },
-  (table) => {
-    return {
-      assessmentIdIdx: index().on(table.assessmentId),
-      studentIdIdx: index().on(table.studentId),
-      uniqueResult: uniqueIndex().on(table.assessmentId, table.studentId),
-    };
-  },
-);
-
 // Fee types
 export const feeTypes = pgTable(
   "feeTypes",
@@ -963,7 +837,6 @@ export const schoolRelations = relations(schools, ({ one, many }) => ({
   students: many(students),
   classes: many(classes),
   subjects: many(subjects),
-  assessments: many(assessments),
   feeTypes: many(feeTypes),
   examPercentageConfigs: many(examPercentageConfigs),
   academicYears: many(academicYears),
@@ -985,7 +858,6 @@ export const studentRelations = relations(students, ({ one, many }) => ({
   school: one(schools, { fields: [students.schoolId], references: [schools.id] }),
   enrollments: many(classEnrollments),
   attendanceRecords: many(attendance),
-  assessmentResults: many(assessmentResults),
   termResults: many(termResults),
   feePayments: many(feePayments),
   guardianStudents: many(guardianStudents),
@@ -1001,7 +873,6 @@ export const classRelations = relations(classes, ({ one, many }) => ({
   enrollments: many(classEnrollments),
   subjects: many(classSubjects),
   attendanceRecords: many(attendance),
-  assessments: many(assessments),
 }));
 
 export const classSubjectRelations = relations(classSubjects, ({ one }) => ({
@@ -1029,7 +900,6 @@ export type SelectAcademicTerm = typeof academicTerms.$inferSelect;
 export type SelectStudent = typeof students.$inferSelect;
 export type SelectClass = typeof classes.$inferSelect;
 export type SelectSubject = typeof subjects.$inferSelect;
-export type SelectAssessment = typeof assessments.$inferSelect;
 export type SelectFeeType = typeof feeTypes.$inferSelect;
 export type SelectFeePayment = typeof feePayments.$inferSelect;
 
@@ -1142,31 +1012,9 @@ export const termResultRelations = relations(termResults, ({ one }) => ({
 // Add relations for new exam percentage config
 export const examPercentageConfigRelations = relations(examPercentageConfigs, ({ one, many }) => ({
   school: one(schools, { fields: [examPercentageConfigs.schoolId], references: [schools.id] }),
-  assessments: many(assessments),
   termResults: many(termResults),
 }));
 
-// Update existing assessment relations
-export const assessmentRelations = relations(assessments, ({ one, many }) => ({
-  school: one(schools, { fields: [assessments.schoolId], references: [schools.id] }),
-  subject: one(subjects, { fields: [assessments.subjectId], references: [subjects.id] }),
-  class: one(classes, { fields: [assessments.classId], references: [classes.id] }),
-  academicYear: one(academicYears, { fields: [assessments.academicYearId], references: [academicYears.id] }),
-  academicTerm: one(academicTerms, { fields: [assessments.academicTermId], references: [academicTerms.id] }),
-  creator: one(staff, { fields: [assessments.createdBy], references: [staff.id] }),
-  results: many(assessmentResults),
-  percentageConfig: one(examPercentageConfigs, { 
-    fields: [assessments.percentageConfigId], 
-    references: [examPercentageConfigs.id] 
-  }),
-}));
-
-// Add relations for assessment results
-export const assessmentResultsRelations = relations(assessmentResults, ({ one }) => ({
-  assessment: one(assessments, { fields: [assessmentResults.assessmentId], references: [assessments.id] }),
-  student: one(students, { fields: [assessmentResults.studentId], references: [students.id] }),
-  recorder: one(staff, { fields: [assessmentResults.recordedBy], references: [staff.id] }),
-}));
 
 // Academic year relations
 export const academicYearRelations = relations(academicYears, ({ one, many }) => ({
@@ -1325,7 +1173,6 @@ export const subjectRelations = relations(subjects, ({ one, many }) => ({
   school: one(schools, { fields: [subjects.schoolId], references: [schools.id] }),
   course: one(courses, { fields: [subjects.courseId], references: [courses.id] }),
   classSubjects: many(classSubjects),
-  assessments: many(assessments),
   termResults: many(termResults),
   studentEnrollments: many(studentSubjects),
 }));
@@ -1533,19 +1380,6 @@ export const examPeriods = pgTable("exam_periods", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Assessment types
-export const assessmentTypes = pgTable("assessment_types", {
-  id: serial("id").primaryKey(),
-  schoolId: text("school_id").notNull().references(() => schools.id, { onDelete: "cascade" }),
-  name: text("name").notNull(), // e.g., "Class Test", "Assignment", "Project Work", "End of Term Exam"
-  shortName: text("short_name"), // e.g., "CT", "ASS", "PW", "ETE"
-  category: text("category").notNull(), // "Class Score" or "Exam Score"
-  weight: integer("weight").notNull(), // Percentage weight in final calculation
-  isDefault: boolean("is_default").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
 // Exam configuration table (for school preferences)
 export const examConfigurations = pgTable(
   "exam_configurations",
@@ -1675,27 +1509,26 @@ export const termReports = pgTable(
 
 // Term Report Detail table (breakdown of individual subject performance)
 export const termReportDetails = pgTable("term_report_details", {
-  id: serial("id").primaryKey(),
+  id: text("id").primaryKey().$defaultFn(() => createId()), // Use string ID with cuid2 generator
   termReportId: text("term_report_id").notNull().references(() => termReports.id, { onDelete: "cascade" }),
   subjectId: text("subject_id").notNull().references(() => subjects.id, { onDelete: "cascade" }),
-  classScore: numeric("class_score", { precision: 5, scale: 2 }),
-  examScore: numeric("exam_score", { precision: 5, scale: 2 }),
-  totalScore: numeric("total_score", { precision: 5, scale: 2 }),
+  classScore: numeric("class_score", { precision: 5, scale: 2 }).notNull().default("0"), // Add not null and default
+  examScore: numeric("exam_score", { precision: 5, scale: 2 }).notNull().default("0"), // Add not null and default
+  totalScore: numeric("total_score", { precision: 5, scale: 2 }).notNull().default("0"), // Add not null and default
   gradeId: integer("grade_id").references(() => gradeSystem.id),
   position: integer("position"), // overall class postion after find the total for all exams
   coursePosition: integer("course_position"), // course or program position. This is optional for Basic Schools, but for High Schools it will be required
   batchPosition: integer("batch_position"), // Batch or form position
-  classPosition: integer("class_position"), // class position for each subject
+  classPosition: integer("class_position").notNull().default(0), // class position for each subject - made not null with default
   teacherRemarks: text("teacher_remarks"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   uniqueIdx: uniqueIndex("term_report_detail_unique_idx").on(table.termReportId, table.subjectId),
 }));
 
 // Generate types for the schema
 export type SelectExamPeriod = InferSelectModel<typeof examPeriods>;
-export type SelectAssessmentType = InferSelectModel<typeof assessmentTypes>;
 export type SelectExamConfiguration = InferSelectModel<typeof examConfigurations>;
 export type SelectGrade = InferSelectModel<typeof gradeSystem>;
 export type SelectExam = InferSelectModel<typeof exams>;

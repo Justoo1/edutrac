@@ -1,84 +1,68 @@
 // app/api/classes/route.ts
-import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
-import db from "@/lib/db";
-import { classes } from "@/lib/schema";
-import { nanoid } from "nanoid";
 
-export async function POST(req: Request) {
+import { NextResponse } from 'next/server';
+import { getSession } from '@/lib/auth';
+import db from '@/lib/db';
+import { classes } from '@/lib/schema';
+import { eq } from 'drizzle-orm';
+
+export async function GET(
+  req: Request
+) {
   try {
+    // Check authentication
     const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await req.json();
     
-    // Validate the required fields
-    const { name, gradeLevel, academicYear, schoolId } = body;
-    
-    if (!name || !gradeLevel || !academicYear || !schoolId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
-
-    // Check if the user has permission for this school
-    const school = await db.query.schools.findFirst({
-      where: (schools, { eq }) => eq(schools.id, schoolId),
-    });
-
-    if (!school || school.adminId !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Create the class record
-    const createdClass = await db.insert(classes).values({
-      ...body,
-      id: nanoid(),
-      schoolId: schoolId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      status: "active",
-    }).returning();
-
-    return NextResponse.json(createdClass[0]);
-  } catch (error) {
-    console.error("[CLASS_CREATE]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-export async function GET(req: Request) {
-  try {
-    const session = await getSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, message: 'Not authenticated' },
+        { status: 401 }
+      );
     }
-
-    const { searchParams } = new URL(req.url);
-    const schoolId = searchParams.get("schoolId");
-
+    
+    // Get query parameters
+    const url = new URL(req.url);
+    const schoolId = url.searchParams.get('schoolId');
+    
     if (!schoolId) {
-      return NextResponse.json({ error: "School ID is required" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: 'School ID is required' },
+        { status: 400 }
+      );
     }
-
-    // Check if the user has permission for this school
-    const school = await db.query.schools.findFirst({
-      where: (schools, { eq }) => eq(schools.id, schoolId),
-    });
-
-    if (!school || school.adminId !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    
+    // Check if the school belongs to the user
+    if (schoolId !== session.user.schoolId) {
+      return NextResponse.json(
+        { success: false, message: 'Unauthorized access to this school' },
+        { status: 403 }
+      );
     }
-
-    // Fetch classes for the school
-    const classesList = await db.query.classes.findMany({
-      where: (classes, { eq }) => eq(classes.schoolId, schoolId),
-      orderBy: (classes, { asc }) => [asc(classes.gradeLevel), asc(classes.name)],
+    
+    // Get classes for this school
+    const schoolClasses = await db.query.classes.findMany({
+      where: eq(classes.schoolId, schoolId),
+      with: {
+        classTeacher: {
+          columns: {
+            id: true,
+            name: true,
+            position: true
+          }
+        }
+      },
+      orderBy: [classes.gradeLevel, classes.name]
     });
-
-    return NextResponse.json(classesList);
+    
+    return NextResponse.json(schoolClasses);
   } catch (error) {
-    console.error("[CLASSES_GET]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error('Error fetching classes:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to fetch classes'
+      },
+      { status: 500 }
+    );
   }
 }

@@ -47,6 +47,7 @@ import {
   CheckCircle,
   AlertCircle,
   ChevronLeft,
+  MessageSquare,
 } from "lucide-react";
 
 // Type definitions
@@ -144,6 +145,7 @@ export default function GenerateTerminalReportsPage({ schoolId }: GenerateTermin
   // Watch for classId changes to load students
   const selectedClassId = form.watch("classId");
   const selectedYearId = form.watch("academicYearId");
+  const selectedTermId = form.watch("academicTermId");
   const generateAllStudents = form.watch("generateAllStudents");
 
   // Load academic years on component mount
@@ -195,6 +197,7 @@ export default function GenerateTerminalReportsPage({ schoolId }: GenerateTermin
     const fetchAcademicTerms = async (): Promise<void> => {
       setIsLoading(true);
       try {
+        // Updated to use the correct endpoint from your existing code
         const response = await fetch(`/api/schools/${schoolId}/academic/terms`);
         if (!response.ok) {
             throw new Error("Failed to fetch academic terms");
@@ -225,6 +228,7 @@ export default function GenerateTerminalReportsPage({ schoolId }: GenerateTermin
     const fetchStudents = async (): Promise<void> => {
       setIsLoading(true);
       try {
+        // Using the endpoint from your existing code
         const response = await fetch(`/api/classes/${selectedClassId}/details`);
         if (!response.ok) throw new Error("Failed to fetch students");
         const classData = await response.json()
@@ -292,143 +296,151 @@ export default function GenerateTerminalReportsPage({ schoolId }: GenerateTermin
       setStatus("Report generation completed successfully!");
       setResult(result);
       
-      toast.success("Terminal reports generated successfully!");
+      // Show success message
+      toast.success(`Successfully generated ${result.reportsCount} reports`);
+      
     } catch (error) {
-      setStatus(`Error: ${error instanceof Error ? error.message : "Failed to generate reports"}`);
-      toast.error(error instanceof Error ? error.message : "Failed to generate reports");
+      console.error("Error generating reports:", error);
+      setProgress(0);
+      setStatus("Failed to generate reports");
+      setResult({
+        success: false,
+        message: error instanceof Error ? error.message : "An unknown error occurred"
+      });
+      toast.error("Failed to generate reports");
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleDownloadReports = (): void => {
+  const resetForm = (): void => {
+    form.reset();
+    setResult(null);
+    setActiveTab("form");
+  };
+
+  const downloadReport = async (): Promise<void> => {
     if (!result?.reportUrl) return;
     
-    // Create an anchor element and trigger download
-    const link = document.createElement('a');
-    link.href = result.reportUrl;
-    link.setAttribute('download', `Terminal_Reports_${new Date().toISOString().split('T')[0]}.pdf`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleViewReports = (): void => {
-    if (!result?.reportUrl) return;
-    window.open(result.reportUrl, '_blank');
-  };
-
-  const handleReset = (): void => {
-    setActiveTab("form");
-    setProgress(0);
-    setStatus("");
-    setResult(null);
+    try {
+      window.open(result.reportUrl, "_blank");
+    } catch (error) {
+      toast.error("Error downloading report");
+      console.error(error);
+    }
   };
 
   return (
-    <div className="container mx-auto py-6 max-w-5xl">
-      <div className="mb-6">
+    <>
+      <div className="flex items-center mb-4">
         <Button 
-          variant="outline" 
-          onClick={() => router.push('/reports')}
-          className="mb-4"
+          variant="ghost" 
+          size="sm" 
+          onClick={() => router.push("/dashboard/exams")}
+          className="gap-1"
         >
-          <ChevronLeft className="mr-2 h-4 w-4" /> Back to Reports
+          <ChevronLeft className="h-4 w-4" />
+          Back
         </Button>
-        <h1 className="text-3xl font-bold">Generate Terminal Reports</h1>
-        <p className="text-muted-foreground mt-1">
-          Create end-of-term academic reports for students
-        </p>
+        <h1 className="text-2xl font-bold ml-2">Generate Terminal Reports</h1>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="form" disabled={isGenerating}>
-            <FileText className="mr-2 h-4 w-4" /> Report Options
+            <FileText className="h-4 w-4 mr-2" />
+            Report Options
           </TabsTrigger>
-          <TabsTrigger value="progress" disabled={!status}>
-            <Loader2 className="mr-2 h-4 w-4" /> Progress
+          <TabsTrigger value="progress" disabled={!isGenerating && !result}>
+            {result ? (
+              <CheckCircle className="h-4 w-4 mr-2" />
+            ) : (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            )}
+            Generation Status
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="form">
           <Card>
             <CardHeader>
-              <CardTitle>Terminal Report Configuration</CardTitle>
+              <CardTitle>Terminal Report Generator</CardTitle>
               <CardDescription>
-                Configure the settings for generating terminal reports
+                Configure and generate terminal reports for students
               </CardDescription>
             </CardHeader>
-            
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)}>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="academicYearId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Academic Year</FormLabel>
-                          <Select
-                            disabled={isLoading}
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select academic year" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {academicYears.map((year) => (
-                                <SelectItem key={year.id} value={year.id}>
-                                  {year.name} {year.isCurrent && "(Current)"}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>
-                            Select the academic year for report generation
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="academicTermId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Academic Term</FormLabel>
-                          <Select
-                            disabled={isLoading || !selectedYearId}
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select academic term" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {academicTerms.map((term) => (
-                                <SelectItem key={term.id} value={term.id}>
-                                  {term.name} {term.isCurrent && "(Current)"}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>
-                            Select the term for report generation
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  {/* Academic Year Selection */}
+                  <FormField
+                    control={form.control}
+                    name="academicYearId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Academic Year</FormLabel>
+                        <Select
+                          disabled={isLoading}
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select academic year" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {academicYears.map((year) => (
+                              <SelectItem key={year.id} value={year.id}>
+                                {year.name} {year.isCurrent && "(Current)"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          <Calendar className="inline h-4 w-4 mr-1" />
+                          Select the academic year for the reports
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Academic Term Selection */}
+                  <FormField
+                    control={form.control}
+                    name="academicTermId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Academic Term</FormLabel>
+                        <Select
+                          disabled={isLoading || !selectedYearId}
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select academic term" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {academicTerms.map((term) => (
+                              <SelectItem key={term.id} value={term.id}>
+                                {term.name} {term.isCurrent && "(Current)"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          <BookOpen className="inline h-4 w-4 mr-1" />
+                          Select the term for the reports
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Class Selection */}
                   <FormField
                     control={form.control}
                     name="classId"
@@ -448,19 +460,21 @@ export default function GenerateTerminalReportsPage({ schoolId }: GenerateTermin
                           <SelectContent>
                             {classes.map((classItem) => (
                               <SelectItem key={classItem.id} value={classItem.id}>
-                                {classItem.name}
+                                {classItem.name} ({classItem.gradeLevel})
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         <FormDescription>
-                          Select the class for report generation
+                          <Users className="inline h-4 w-4 mr-1" />
+                          Select the class for which to generate reports
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  
+
+                  {/* Generate for all students checkbox */}
                   <FormField
                     control={form.control}
                     name="generateAllStudents"
@@ -481,187 +495,214 @@ export default function GenerateTerminalReportsPage({ schoolId }: GenerateTermin
                       </FormItem>
                     )}
                   />
-                  
-                  {!generateAllStudents && students.length > 0 && (
-                    <div className="border rounded-md p-4">
-                      <FormLabel className="block mb-2">Select Students</FormLabel>
-                      <div className="max-h-60 overflow-y-auto space-y-2">
-                        {students.map((student) => (
-                          <div key={student.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`student-${student.id}`}
-                              checked={form.getValues().selectedStudents?.includes(student.id)}
-                              onCheckedChange={(checked) => {
-                                const currentSelected = form.getValues().selectedStudents || [];
-                                if (checked) {
-                                  form.setValue("selectedStudents", [
-                                    ...currentSelected,
-                                    student.id,
-                                  ]);
-                                } else {
-                                  form.setValue(
-                                    "selectedStudents",
-                                    currentSelected.filter((id) => id !== student.id)
+
+                  {/* Student Selection (when not generating for all) */}
+                  {!generateAllStudents && selectedClassId && (
+                    <FormField
+                      control={form.control}
+                      name="selectedStudents"
+                      render={() => (
+                        <FormItem>
+                          <div className="mb-4">
+                            <FormLabel>Select Students</FormLabel>
+                            <FormDescription>
+                              <User className="inline h-4 w-4 mr-1" />
+                              Choose specific students for report generation
+                            </FormDescription>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto border rounded-md p-4">
+                            {students.map((student) => (
+                              <FormField
+                                key={student.id}
+                                control={form.control}
+                                name="selectedStudents"
+                                render={({ field }) => {
+                                  return (
+                                    <FormItem
+                                      key={student.id}
+                                      className="flex flex-row items-start space-x-3 space-y-0"
+                                    >
+                                      <FormControl>
+                                        <Checkbox
+                                          checked={field.value?.includes(student.id)}
+                                          onCheckedChange={(checked) => {
+                                            return checked
+                                              ? field.onChange([...field.value || [], student.id])
+                                              : field.onChange(
+                                                  field.value?.filter(
+                                                    (value) => value !== student.id
+                                                  )
+                                                );
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormLabel className="font-normal">
+                                        {student.firstName} {student.lastName} ({student.studentId})
+                                      </FormLabel>
+                                    </FormItem>
                                   );
-                                }
-                              }}
-                            />
-                            <label
-                              htmlFor={`student-${student.id}`}
-                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {student.firstName} {student.lastName} ({student.studentId})
-                            </label>
+                                }}
+                              />
+                            ))}
+                            {students.length === 0 && (
+                              <p className="text-sm text-muted-foreground">
+                                No students found in this class
+                              </p>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                      {!form.getValues().selectedStudents?.length && (
-                        <p className="text-sm text-red-500 mt-2">
-                          Please select at least one student
-                        </p>
+                          <FormMessage />
+                        </FormItem>
                       )}
-                    </div>
+                    />
                   )}
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="includeComments"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>Include teacher comments</FormLabel>
-                            <FormDescription>
-                              Add teacher comments to the reports
-                            </FormDescription>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="includeAttendance"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>Include attendance record</FormLabel>
-                            <FormDescription>
-                              Add attendance statistics to the reports
-                            </FormDescription>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-                
-                <CardFooter className="flex justify-between">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.push('/reports')}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={
-                      isLoading || 
-                      (!generateAllStudents && 
-                        (!form.getValues().selectedStudents || 
-                          form.getValues().selectedStudents.length === 0))
-                    }
-                  >
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Generate Reports
-                  </Button>
-                </CardFooter>
-              </form>
-            </Form>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="progress">
-          <Card>
-            <CardHeader>
-              <CardTitle>Report Generation Progress</CardTitle>
-              <CardDescription>
-                Terminal report generation status and progress
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Progress</span>
-                  <span>{progress}%</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-              </div>
-              
-              <div className="flex items-center gap-2 text-sm border rounded-md p-4">
-                {isGenerating ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                ) : progress === 100 ? (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-amber-500" />
-                )}
-                <span>{status}</span>
-              </div>
-              
-              {result && (
-                <div className="border rounded-md p-4 bg-muted/20">
-                  <h3 className="font-medium mb-2">Generation Complete</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Generated {result.reportsCount} reports successfully.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <Button 
-                      onClick={handleViewReports}
-                      className="gap-2"
-                    >
-                      <FileText className="h-4 w-4" />
-                      View Reports
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={handleDownloadReports}
-                      className="gap-2"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download Reports
-                    </Button>
-                  </div>
-                </div>
-              )}
+
+                  {/* Include Comments Checkbox */}
+                  <FormField
+                    control={form.control}
+                    name="includeComments"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Include teacher comments</FormLabel>
+                          <FormDescription>
+                            <MessageSquare className="inline h-4 w-4 mr-1" />
+                            Include teacher comments in the generated reports
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Include Attendance Checkbox */}
+                  <FormField
+                    control={form.control}
+                    name="includeAttendance"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Include attendance records</FormLabel>
+                          <FormDescription>
+                            <Calendar className="inline h-4 w-4 mr-1" />
+                            Include attendance statistics in the generated reports
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </form>
+              </Form>
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex justify-between">
               <Button 
-                type="button" 
-                onClick={handleReset}
+                variant="outline" 
+                onClick={resetForm}
                 disabled={isGenerating}
-                variant="outline"
-                className="w-full"
               >
-                Back to Form
+                Reset
+              </Button>
+              <Button 
+                onClick={form.handleSubmit(onSubmit)}
+                disabled={isGenerating || isLoading || (!generateAllStudents && (!form.getValues().selectedStudents || form.getValues().selectedStudents.length === 0))}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Generate Reports
+                  </>
+                )}
               </Button>
             </CardFooter>
           </Card>
         </TabsContent>
+
+        <TabsContent value="progress">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {result ? (
+                  result.success ? (
+                    <div className="flex items-center text-green-600">
+                      <CheckCircle className="mr-2 h-5 w-5" />
+                      Report Generation Complete
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-red-600">
+                      <AlertCircle className="mr-2 h-5 w-5" />
+                      Report Generation Failed
+                    </div>
+                  )
+                ) : (
+                  <div className="flex items-center">
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Generating Reports
+                  </div>
+                )}
+              </CardTitle>
+              <CardDescription>
+                {status}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Progress value={progress} className="w-full" />
+              
+              {result && (
+                <div className="space-y-2 mt-4">
+                  {result.success ? (
+                    <div className="text-sm">
+                      <p>Successfully generated {result.reportsCount} reports.</p>
+                      {result.failedCount && result.failedCount > 0 && (
+                        <p className="text-yellow-600 mt-2">
+                          Note: {result.failedCount} reports could not be generated.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-red-600 border border-red-200 bg-red-50 p-3 rounded-md">
+                      <p>{result.message || "An error occurred during report generation."}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button 
+                variant="outline" 
+                onClick={() => setActiveTab("form")}
+                disabled={isGenerating}
+              >
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Back to Options
+              </Button>
+              {result && result.success && result.reportUrl && (
+                <Button 
+                  onClick={downloadReport}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Download Reports
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        </TabsContent>
       </Tabs>
-    </div>
+    </>
   );
 }

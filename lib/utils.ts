@@ -110,3 +110,10 @@ export async function getActiveEnrollmentCount(classId: string): Promise<number>
     return 0;
   }
 }
+
+// Helper function to get ordinal rank (1st, 2nd, etc.)
+export function getOrdinalRank(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}

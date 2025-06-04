@@ -7,7 +7,7 @@ import { classes, classEnrollments, students, users, schools } from "@/lib/schem
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getSession()
@@ -17,7 +17,7 @@ export async function GET(
     }
 
     const userId = session.user.id
-    const classId = params.id
+    const {id:classId} = await params
 
     // Verify the class exists and user has access
     const classData = await db.query.classes.findFirst({
