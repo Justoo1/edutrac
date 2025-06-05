@@ -1,54 +1,52 @@
-import { FeesTable } from "@/components/dashboard/finance/fees-table"
-import { FinanceStats } from "@/components/dashboard/finance/finance-stats"
-import { FinanceChart } from "@/components/dashboard/finance/finance-chart"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, Search } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { FinanceOverview } from "@/components/dashboard/finance/components/finance-overview"
+import { StudentFeesManagement } from "@/components/dashboard/finance/components/student-fees-management"
+import { StaffSalaryManagement } from "@/components/dashboard/finance/components/staff-salary-management"
+import { ExpenseManagement } from "@/components/dashboard/finance/components/expense-management"
+import { FinancialReports } from "@/components/dashboard/finance/components/financial-reports"
+import { FeeStructureManagement } from "@/components/dashboard/finance/components/fee-structure-management"
 
 export default function FinancePage() {
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Fees Collection</h1>
-      <FinanceChart />
-      <FinanceStats />
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">Fees Collection</h2>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input type="search" placeholder="Search by Name or ID" className="w-[300px] pl-8" />
-          </div>
-          <Button variant="outline" size="sm" className="gap-1">
-            <CalendarIcon className="h-4 w-4" />
-            Today
-          </Button>
-          <Select defaultValue="all-classes">
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Select class" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all-classes">All Classes</SelectItem>
-              <SelectItem value="class-10">Class 10</SelectItem>
-              <SelectItem value="class-11">Class 11</SelectItem>
-              <SelectItem value="class-12">Class 12</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select defaultValue="all-status">
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all-status">All Status</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="overdue">Overdue</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <h1 className="text-3xl font-bold tracking-tight">Finance Management</h1>
       </div>
-      <FeesTable />
+
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-6">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="student-fees">Student Fees</TabsTrigger>
+          <TabsTrigger value="staff-salary">Staff Salary</TabsTrigger>
+          <TabsTrigger value="expenses">Expenses</TabsTrigger>
+          <TabsTrigger value="fee-structure">Fee Structure</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+          <FinanceOverview />
+        </TabsContent>
+
+        <TabsContent value="student-fees" className="space-y-6">
+          <StudentFeesManagement />
+        </TabsContent>
+
+        <TabsContent value="staff-salary" className="space-y-6">
+          <StaffSalaryManagement />
+        </TabsContent>
+
+        <TabsContent value="expenses" className="space-y-6">
+          <ExpenseManagement />
+        </TabsContent>
+
+        <TabsContent value="fee-structure" className="space-y-6">
+          <FeeStructureManagement />
+        </TabsContent>
+
+        <TabsContent value="reports" className="space-y-6">
+          <FinancialReports />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
-

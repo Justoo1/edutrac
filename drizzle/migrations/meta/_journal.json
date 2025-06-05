@@ -43,6 +43,13 @@
       "when": 1748945340158,
       "tag": "0005_peaceful_star_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1749063024468,
+      "tag": "0006_material_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

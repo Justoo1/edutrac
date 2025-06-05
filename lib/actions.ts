@@ -23,8 +23,6 @@ import {
   subjects, 
   classSubjects, 
   attendance, 
-  assessments, 
-  assessmentResults, 
   feeTypes, 
   feePayments, 
   users 
@@ -35,8 +33,7 @@ import {
   SelectStudent, 
   SelectStaff, 
   SelectClass, 
-  SelectSubject, 
-  SelectAssessment, 
+  SelectSubject,
   SelectFeeType,
   SelectFeePayment 
 } from "./schema";
@@ -660,7 +657,6 @@ export const createStudent = withSchoolAuth(
           dateOfBirth,
           gender,
           enrollmentDate,
-          currentGradeLevel,
           status,
           guardian,
           contactInfo,
@@ -1163,7 +1159,6 @@ export const createSubject = withSchoolAuth(
           name,
           code,
           description,
-          gradeLevel,
         })
         .returning();
 
@@ -1205,7 +1200,6 @@ export const updateSubject = withSchoolAuth(
           name,
           code,
           description,
-          gradeLevel,
         })
         .where(eq(subjects.id, subjectId))
         .returning();
@@ -1421,249 +1415,6 @@ export const removeClassSubject = withSchoolAuth(
         .delete(classSubjects)
         .where(eq(classSubjects.id, classSubjectId))
         .returning();
-
-      return response;
-    } catch (error: any) {
-      return {
-        error: error.message,
-      };
-    }
-  }
-);
-
-// Assessment management
-export const createAssessment = withSchoolAuth(
-  async (formData: FormData, school: SelectSchool) => {
-    const subjectId = formData.get("subjectId") as string;
-    const classId = formData.get("classId") as string;
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string || null;
-    const type = formData.get("type") as string; // Exam, Quiz, Project, etc.
-    const totalMarks = parseFloat(formData.get("totalMarks") as string);
-    const passMark = parseFloat(formData.get("passMark") as string) || null;
-    const weight = parseFloat(formData.get("weight") as string) || null;
-    const date = formData.get("date")
-      ? new Date(formData.get("date") as string)
-      : null;
-    const academicYear = formData.get("academicYear") as string;
-    const term = formData.get("term") as string;
-    const createdBy = formData.get("createdBy") as string;
-
-    try {
-      // Verify that class, subject, and staff belong to this school
-      const classData = await db.query.classes.findFirst({
-        where: and(
-          eq(classes.id, classId),
-          eq(classes.schoolId, school.id)
-        ),
-      });
-
-      const subjectData = await db.query.subjects.findFirst({
-        where: and(
-          eq(subjects.id, subjectId),
-          eq(subjects.schoolId, school.id)
-        ),
-      });
-
-      const staffMember = await db.query.staff.findFirst({
-        where: and(
-          eq(staff.id, createdBy),
-          eq(staff.schoolId, school.id)
-        ),
-      });
-
-      if (!classData || !subjectData || !staffMember) {
-        return {
-          error: "Class, subject, or staff member not found in this school",
-        };
-      }
-
-      const [response] = await db
-        .insert(assessments)
-        .values({
-          schoolId: school.id,
-          subjectId,
-          classId,
-          title,
-          description,
-          type,
-          totalMarks,
-          passMark,
-          weight,
-          date,
-          academicYear,
-          term,
-          createdBy,
-        })
-        .returning();
-
-      return response;
-    } catch (error: any) {
-      return {
-        error: error.message,
-      };
-    }
-  }
-);
-
-export const updateAssessment = withSchoolAuth(
-  async (formData: FormData, school: SelectSchool) => {
-    const assessmentId = formData.get("assessmentId") as string;
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string || null;
-    const type = formData.get("type") as string;
-    const totalMarks = parseFloat(formData.get("totalMarks") as string);
-    const passMark = parseFloat(formData.get("passMark") as string) || null;
-    const weight = parseFloat(formData.get("weight") as string) || null;
-    const date = formData.get("date")
-      ? new Date(formData.get("date") as string)
-      : null;
-
-    try {
-      // Verify that the assessment belongs to this school
-      const assessmentData = await db.query.assessments.findFirst({
-        where: and(
-          eq(assessments.id, assessmentId),
-          eq(assessments.schoolId, school.id)
-        ),
-      });
-
-      if (!assessmentData) {
-        return {
-          error: "Assessment not found in this school",
-        };
-      }
-
-      const [response] = await db
-        .update(assessments)
-        .set({
-          title,
-          description,
-          type,
-          totalMarks,
-          passMark,
-          weight,
-          date,
-        })
-        .where(eq(assessments.id, assessmentId))
-        .returning();
-
-      return response;
-    } catch (error: any) {
-      return {
-        error: error.message,
-      };
-    }
-  }
-);
-
-export const deleteAssessment = withSchoolAuth(
-  async (formData: FormData, school: SelectSchool) => {
-    const assessmentId = formData.get("assessmentId") as string;
-
-    try {
-      // Verify that the assessment belongs to this school
-      const assessmentData = await db.query.assessments.findFirst({
-        where: and(
-          eq(assessments.id, assessmentId),
-          eq(assessments.schoolId, school.id)
-        ),
-      });
-
-      if (!assessmentData) {
-        return {
-          error: "Assessment not found in this school",
-        };
-      }
-
-      const [response] = await db
-        .delete(assessments)
-        .where(eq(assessments.id, assessmentId))
-        .returning();
-
-      return response;
-    } catch (error: any) {
-      return {
-        error: error.message,
-      };
-    }
-  }
-);
-
-// Assessment results
-export const recordAssessmentResult = withSchoolAuth(
-  async (formData: FormData, school: SelectSchool) => {
-    const assessmentId = formData.get("assessmentId") as string;
-    const studentId = formData.get("studentId") as string;
-    const score = parseFloat(formData.get("score") as string);
-    const grade = formData.get("grade") as string || null;
-    const feedback = formData.get("feedback") as string || null;
-    const recordedBy = formData.get("recordedBy") as string;
-
-    try {
-      // Verify that assessment, student, and staff member belong to this school
-      const assessmentData = await db.query.assessments.findFirst({
-        where: and(
-          eq(assessments.id, assessmentId),
-          eq(assessments.schoolId, school.id)
-        ),
-      });
-
-      const studentData = await db.query.students.findFirst({
-        where: and(
-          eq(students.id, studentId),
-          eq(students.schoolId, school.id)
-        ),
-      });
-
-      const staffMember = await db.query.staff.findFirst({
-        where: and(
-          eq(staff.id, recordedBy),
-          eq(staff.schoolId, school.id)
-        ),
-      });
-
-      if (!assessmentData || !studentData || !staffMember) {
-        return {
-          error: "Assessment, student, or staff member not found in this school",
-        };
-      }
-
-      // Check if a result already exists for this student and assessment
-      const existingResult = await db.query.assessmentResults.findFirst({
-        where: and(
-          eq(assessmentResults.assessmentId, assessmentId),
-          eq(assessmentResults.studentId, studentId)
-        ),
-      });
-
-      let response;
-      if (existingResult) {
-        // Update existing result
-        [response] = await db
-          .update(assessmentResults)
-          .set({
-            score,
-            grade,
-            feedback,
-            recordedBy,
-          })
-          .where(eq(assessmentResults.id, existingResult.id))
-          .returning();
-      } else {
-        // Create new result
-        [response] = await db
-          .insert(assessmentResults)
-          .values({
-            assessmentId,
-            studentId,
-            score,
-            grade,
-            feedback,
-            recordedBy,
-          })
-          .returning();
-      }
 
       return response;
     } catch (error: any) {
@@ -2042,7 +1793,7 @@ export async function getSchoolPlanAndSiteCount(schoolId: string) {
   };
 }
 
-export type SelectStaff = typeof staff.$inferSelect;
+// export type SelectStaff = typeof staff.$inferSelect;
 export type InsertStaff = typeof staff.$inferInsert;
 
 
