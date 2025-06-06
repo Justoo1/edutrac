@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,6 +36,67 @@ function useClasses(schoolId: string) {
   }
 }
 
+// Hook to fetch fee structures
+function useFeeStructures(schoolId: string, filters?: {
+  academicYear?: string;
+  level?: string;
+}) {
+  const searchParams = new URLSearchParams()
+  searchParams.append('schoolId', schoolId)
+  
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) searchParams.append(key, value)
+    })
+  }
+
+  const { data, error, isLoading, mutate } = useSWR(
+    schoolId ? `/api/finance/fee-structures?${searchParams.toString()}` : null,
+    fetcher
+  )
+
+  return {
+    feeStructures: (data as any[]) || [],
+    isLoading,
+    isError: error,
+    mutate
+  }
+}
+
+// Hook to fetch academic years
+function useAcademicYears(schoolId: string) {
+  const { data, error, isLoading, mutate } = useSWR(
+    schoolId ? `/api/schools/${schoolId}/academic/years` : null,
+    fetcher
+  )
+
+  return {
+    academicYears: (data as any[]) || [],
+    isLoading,
+    isError: error,
+    mutate
+  }
+}
+
+// Hook to fetch academic terms
+function useAcademicTerms(schoolId: string, academicYearId?: string) {
+  const url = academicYearId 
+    ? `/api/schools/${schoolId}/academic/terms?academicYearId=${academicYearId}`
+    : `/api/schools/${schoolId}/academic/terms`
+
+  const { data, error, isLoading, mutate } = useSWR(
+    schoolId ? url : null,
+    fetcher
+  )
+
+  return {
+    terms: (data as any[]) || [],
+    isLoading,
+    isError: error,
+    mutate
+  }
+}
+
 export function StudentFeesManagement() {
   const { data: session } = useSession()
   const schoolId = session?.user?.schoolId || "" // Get from session or context
@@ -62,18 +123,27 @@ export function StudentFeesManagement() {
     amount: 0,
     frequency: "Term",
     gradeLevel: "",
-    academicYear: "2023-2024",
-    term: "First Term",
+    academicYear: "",
+    academicYearId: "",
+    term: "",
+    termId: "",
     optional: false,
-    dueDate: ""
+    dueDate: "",
+    selectedFeeStructure: ""
   })
+  const [isCreatingFromStructure, setIsCreatingFromStructure] = useState(false)
 
   // Fetch data
   const { students, isLoading: studentsLoading, mutate } = useStudentFees(schoolId)
   const { classes, isLoading: classesLoading } = useClasses(schoolId)
+  const { academicYears, isLoading: academicYearsLoading } = useAcademicYears(schoolId)
+  const { terms, isLoading: termsLoading } = useAcademicTerms(schoolId, feeForm.academicYearId)
   const { feeTypes, mutate: mutateFeeTypes } = useFeeTypes(schoolId, {
     academicYear: feeForm.academicYear,
     term: feeForm.term
+  })
+  const { feeStructures, isLoading: feeStructuresLoading } = useFeeStructures(schoolId, {
+    academicYear: feeForm.academicYear
   })
   const { recordPayment, createFeeType, isLoading: isRecording } = useFinanceActions()
 
@@ -86,20 +156,45 @@ export function StudentFeesManagement() {
     )
   ).sort()
 
+  // Set default academic year and term when data loads
+  useEffect(() => {
+    if (academicYears.length > 0 && !feeForm.academicYear) {
+      const currentYear = academicYears.find(year => year.isCurrent) || academicYears[0]
+      setFeeForm(prev => ({ 
+        ...prev, 
+        academicYear: currentYear.name,
+        academicYearId: currentYear.id
+      }))
+    }
+  }, [academicYears, feeForm.academicYear])
+
+  // Set default term when terms load
+  useEffect(() => {
+    if (terms.length > 0 && !feeForm.term && feeForm.academicYearId) {
+      const currentTerm = terms.find(term => term.isCurrent) || terms[0]
+      setFeeForm(prev => ({ 
+        ...prev, 
+        term: currentTerm.name,
+        termId: currentTerm.id
+      }))
+    }
+  }, [terms, feeForm.term, feeForm.academicYearId])
+
   // Filter students based on search and selected filters
   const filteredStudents = students.filter((student: any) => {
     const matchesSearch = student.student.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          student.student.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          student.student.studentId?.toLowerCase().includes(searchTerm.toLowerCase())
     
-    // Get the student's current class info
-    const studentClass = student.student.currentClass || student.student.currentGradeLevel
+    // Get the student's current class info from the enhanced data
+    const studentClass = student.student.currentClass
+    const studentGradeLevel = student.student.currentGradeLevel
     
     const matchesClass = selectedClass === "all" || 
       (studentClass && studentClass.includes(selectedClass))
     
     const matchesGradeLevel = selectedGradeLevel === "all" || 
-      (studentClass && studentClass.includes(selectedGradeLevel))
+      (studentGradeLevel && studentGradeLevel.includes(selectedGradeLevel))
     
     const matchesStatus = selectedStatus === "all" || student.paymentStatus === selectedStatus
     
@@ -111,6 +206,7 @@ export function StudentFeesManagement() {
       case "paid": return "bg-green-100 text-green-800 border-green-200"
       case "partial": return "bg-yellow-100 text-yellow-800 border-yellow-200"
       case "overdue": return "bg-red-100 text-red-800 border-red-200"
+      case "unpaid": return "bg-gray-100 text-gray-800 border-gray-200"
       default: return "bg-gray-100 text-gray-800 border-gray-200"
     }
   }
@@ -120,6 +216,7 @@ export function StudentFeesManagement() {
       case "paid": return <CheckCircle2 className="h-4 w-4" />
       case "partial": return <Clock className="h-4 w-4" />
       case "overdue": return <AlertTriangle className="h-4 w-4" />
+      case "unpaid": return <Clock className="h-4 w-4" />
       default: return <Clock className="h-4 w-4" />
     }
   }
@@ -142,10 +239,14 @@ export function StudentFeesManagement() {
 
   const handleRecordPayment = async () => {
     try {
+      // Get current academic year and term from form state
+      const currentYear = academicYears.find(year => year.isCurrent) || academicYears[0]
+      const currentTerm = terms.find(term => term.isCurrent) || terms[0]
+      
       await recordPayment({
         ...paymentForm,
-        academicYear: "2023-2024", // Get current academic year
-        term: "First Term" // Get current term
+        academicYear: currentYear?.name || "2023-2024",
+        term: currentTerm?.name || "First Term"
       })
       
       toast.success("Payment recorded successfully")
@@ -160,6 +261,7 @@ export function StudentFeesManagement() {
       })
       mutate() // Refresh data
     } catch (error) {
+      console.error("Payment recording error:", error)
       toast.error("Failed to record payment")
     }
   }
@@ -174,20 +276,101 @@ export function StudentFeesManagement() {
       
       toast.success("Fee created successfully")
       setShowAddFeeDialog(false)
-      setFeeForm({
-        name: "",
-        description: "",
-        amount: 0,
-        frequency: "Term",
-        gradeLevel: "",
-        academicYear: "2023-2024",
-        term: "First Term",
-        optional: false,
-        dueDate: ""
-      })
+      resetFeeForm()
+      setIsCreatingFromStructure(false)
       mutateFeeTypes() // Refresh fee types
     } catch (error) {
       toast.error("Failed to create fee")
+    }
+  }
+
+  const handleCreateFeesFromStructure = async () => {
+    const selectedStructure = feeStructures.find(s => s.id === feeForm.selectedFeeStructure)
+    if (!selectedStructure) {
+      toast.error("Please select a fee structure")
+      return
+    }
+
+    setIsCreatingFromStructure(true)
+    try {
+      // Create a single fee type linked to the fee structure
+      await createFeeType({
+        name: `${selectedStructure.className} Fees`,
+        description: `Complete fee structure for ${selectedStructure.className} - ${selectedStructure.academicYear}`,
+        amount: selectedStructure.totalFee,
+        frequency: feeForm.frequency,
+        gradeLevel: selectedStructure.level,
+        academicYear: feeForm.academicYear,
+        term: feeForm.term,
+        optional: false,
+        schoolId,
+        feeStructureId: selectedStructure.id, // Link to fee structure
+        dueDate: feeForm.dueDate ? new Date(feeForm.dueDate) : undefined
+      })
+      
+      toast.success(`Fee created successfully for ${selectedStructure.className} (GH₵${selectedStructure.totalFee?.toLocaleString()})`)
+      setShowAddFeeDialog(false)
+      resetFeeForm()
+      setIsCreatingFromStructure(false)
+      mutateFeeTypes() // Refresh fee types
+    } catch (error) {
+      toast.error("Failed to create fee from structure")
+      setIsCreatingFromStructure(false)
+    }
+  }
+
+  const resetFeeForm = () => {
+    const currentYear = academicYears.find(year => year.isCurrent) || academicYears[0]
+    const currentTerm = terms.find(term => term.isCurrent) || terms[0]
+    
+    setFeeForm({
+      name: "",
+      description: "",
+      amount: 0,
+      frequency: "Term",
+      gradeLevel: "",
+      academicYear: currentYear?.name || "",
+      academicYearId: currentYear?.id || "",
+      term: currentTerm?.name || "",
+      termId: currentTerm?.id || "",
+      optional: false,
+      dueDate: "",
+      selectedFeeStructure: ""
+    })
+  }
+
+  const handleAcademicYearChange = (yearId: string) => {
+    const selectedYear = academicYears.find(y => y.id === yearId)
+    if (selectedYear) {
+      setFeeForm({
+        ...feeForm,
+        academicYear: selectedYear.name,
+        academicYearId: yearId,
+        term: "", // Reset term when year changes
+        termId: ""
+      })
+    }
+  }
+
+  const handleTermChange = (termId: string) => {
+    const selectedTerm = terms.find(t => t.id === termId)
+    if (selectedTerm) {
+      setFeeForm({
+        ...feeForm,
+        term: selectedTerm.name,
+        termId: termId
+      })
+    }
+  }
+
+  const handleFeeStructureChange = (structureId: string) => {
+    const selectedStructure = feeStructures.find(s => s.id === structureId)
+    if (selectedStructure) {
+      setFeeForm({
+        ...feeForm,
+        selectedFeeStructure: structureId,
+        gradeLevel: selectedStructure.level
+      })
     }
   }
 
@@ -196,7 +379,7 @@ export function StudentFeesManagement() {
   const totalOutstanding = students.reduce((sum: number, student: any) => sum + (student.pendingAmount || 0), 0)
   const overdueCount = students.filter((s: any) => s.paymentStatus === 'overdue').length
 
-  if (studentsLoading || classesLoading) {
+  if (studentsLoading || classesLoading || academicYearsLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -227,38 +410,127 @@ export function StudentFeesManagement() {
                 Add Fee
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Fee</DialogTitle>
                 <DialogDescription>Create a new fee type for students to pay</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label>Fee Name *</Label>
-                    <Input 
-                      placeholder="e.g., Tuition Fee, Library Fee"
-                      value={feeForm.name}
-                      onChange={(e) => setFeeForm({...feeForm, name: e.target.value})}
-                    />
+                {/* Fee Structure Selection */}
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <Label className="text-blue-700 font-medium">Quick Setup from Fee Structure</Label>
+                    <div className="text-xs text-blue-600">Optional - Auto-creates multiple fees</div>
                   </div>
-                  <div>
-                    <Label>Amount (GH₵) *</Label>
-                    <Input 
-                      type="number" 
-                      placeholder="0.00"
-                      value={feeForm.amount || ""}
-                      onChange={(e) => setFeeForm({...feeForm, amount: parseFloat(e.target.value) || 0})}
-                    />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <Label>Select Fee Structure</Label>
+                      <Select 
+                        value={feeForm.selectedFeeStructure} 
+                        onValueChange={handleFeeStructureChange}
+                        disabled={feeStructuresLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={feeStructuresLoading ? "Loading..." : "Choose a fee structure"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {feeStructures.map((structure: any) => (
+                            <SelectItem key={structure.id} value={structure.id}>
+                              {structure.className} - {structure.level} (GH₵{structure.totalFee?.toLocaleString() || 0})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {feeForm.selectedFeeStructure && (
+                      <div>
+                        <Label>Preview</Label>
+                        <div className="text-sm space-y-2">
+                          {(() => {
+                            const selectedStructure = feeStructures.find(s => s.id === feeForm.selectedFeeStructure)
+                            if (!selectedStructure) return null
+                            return (
+                              <div className="p-3 bg-gray-50 rounded border">
+                                <div className="font-medium text-gray-800 mb-2">
+                                  {selectedStructure.className} Complete Fee Structure
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-600">Total Amount:</span>
+                                  <span className="font-bold text-blue-600 text-lg">
+                                    GH₵{(selectedStructure.totalFee || 0).toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="mt-2 pt-2 border-t text-xs text-gray-500">
+                                  <div className="grid grid-cols-2 gap-1">
+                                    {[
+                                      { name: "Tuition", amount: selectedStructure.tuitionFee },
+                                      { name: "Activities", amount: selectedStructure.activitiesFee },
+                                      { name: "Examination", amount: selectedStructure.examinationFee },
+                                      { name: "Library", amount: selectedStructure.libraryFee },
+                                      { name: "Laboratory", amount: selectedStructure.laboratoryFee },
+                                      { name: "Transport", amount: selectedStructure.transportFee }
+                                    ].filter(fee => (fee.amount || 0) > 0).map(fee => (
+                                      <div key={fee.name} className="flex justify-between">
+                                        <span>{fee.name}:</span>
+                                        <span>₵{(fee.amount || 0).toLocaleString()}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })()
+                          }
+                        </div>
+                      </div>
+                    )}
                   </div>
+                  {feeForm.selectedFeeStructure && (
+                    <div className="mt-3 text-xs text-blue-600">
+                      💡 This will create a single fee type for {feeStructures.find(s => s.id === feeForm.selectedFeeStructure)?.className} 
+                      with the total amount, linked to the fee structure for easy tracking.
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <Label>Description</Label>
-                  <Textarea 
-                    placeholder="Brief description of the fee..."
-                    value={feeForm.description}
-                    onChange={(e) => setFeeForm({...feeForm, description: e.target.value})}
-                  />
+
+                {/* Manual Fee Creation */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="h-px bg-gray-300 flex-1"></div>
+                    <span className="text-sm text-gray-500">OR create a single fee manually</span>
+                    <div className="h-px bg-gray-300 flex-1"></div>
+                  </div>
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <Label>Fee Name *</Label>
+                      <Input 
+                        placeholder="e.g., Tuition Fee, Library Fee"
+                        value={feeForm.name}
+                        onChange={(e) => setFeeForm({...feeForm, name: e.target.value})}
+                        disabled={!!feeForm.selectedFeeStructure}
+                      />
+                    </div>
+                    <div>
+                      <Label>Amount (GH₵) *</Label>
+                      <Input 
+                        type="number" 
+                        placeholder="0.00"
+                        value={feeForm.amount || ""}
+                        onChange={(e) => setFeeForm({...feeForm, amount: parseFloat(e.target.value) || 0})}
+                        disabled={!!feeForm.selectedFeeStructure}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Description</Label>
+                    <Textarea 
+                      placeholder="Brief description of the fee..."
+                      value={feeForm.description}
+                      onChange={(e) => setFeeForm({...feeForm, description: e.target.value})}
+                      disabled={!!feeForm.selectedFeeStructure}
+                    />
+                  </div>
                 </div>
                 <div className="grid gap-4 md:grid-cols-3">
                   <div>
@@ -278,31 +550,45 @@ export function StudentFeesManagement() {
                   </div>
                   <div>
                     <Label>Academic Year *</Label>
-                    <Select value={feeForm.academicYear} onValueChange={(value) => 
-                      setFeeForm({...feeForm, academicYear: value})
-                    }>
+                    <Select 
+                      value={feeForm.academicYearId} 
+                      onValueChange={handleAcademicYearChange}
+                      disabled={academicYearsLoading}
+                    >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder={academicYearsLoading ? "Loading..." : "Select academic year"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="2023-2024">2023-2024</SelectItem>
-                        <SelectItem value="2024-2025">2024-2025</SelectItem>
-                        <SelectItem value="2025-2026">2025-2026</SelectItem>
+                        {academicYears.map((year: any) => (
+                          <SelectItem key={year.id} value={year.id}>
+                            {year.name} {year.isCurrent && '(Current)'}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label>Term *</Label>
-                    <Select value={feeForm.term} onValueChange={(value) => 
-                      setFeeForm({...feeForm, term: value})
-                    }>
+                    <Select 
+                      value={feeForm.termId} 
+                      onValueChange={handleTermChange}
+                      disabled={termsLoading || !feeForm.academicYearId}
+                    >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder={
+                          !feeForm.academicYearId 
+                            ? "Select academic year first" 
+                            : termsLoading 
+                            ? "Loading..." 
+                            : "Select term"
+                        } />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="First Term">First Term</SelectItem>
-                        <SelectItem value="Second Term">Second Term</SelectItem>
-                        <SelectItem value="Third Term">Third Term</SelectItem>
+                        {terms.map((term: any) => (
+                          <SelectItem key={term.id} value={term.id}>
+                            {term.name} {term.isCurrent && '(Current)'}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -310,9 +596,11 @@ export function StudentFeesManagement() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <Label>Grade Level (Optional)</Label>
-                    <Select value={feeForm.gradeLevel} onValueChange={(value) => 
-                      setFeeForm({...feeForm, gradeLevel: value})
-                    }>
+                    <Select 
+                      value={feeForm.gradeLevel} 
+                      onValueChange={(value) => setFeeForm({...feeForm, gradeLevel: value})}
+                      disabled={!!feeForm.selectedFeeStructure}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="All levels" />
                       </SelectTrigger>
@@ -340,17 +628,34 @@ export function StudentFeesManagement() {
                     id="optional"
                     checked={feeForm.optional}
                     onCheckedChange={(checked) => setFeeForm({...feeForm, optional: !!checked})}
+                    disabled={!!feeForm.selectedFeeStructure}
                   />
                   <Label htmlFor="optional">This is an optional fee</Label>
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowAddFeeDialog(false)}>
+                <Button variant="outline" onClick={() => {
+                  setShowAddFeeDialog(false)
+                  resetFeeForm()
+                  setIsCreatingFromStructure(false)
+                }}>
                   Cancel
                 </Button>
-                <Button onClick={handleCreateFee} disabled={isRecording || !feeForm.name || !feeForm.amount}>
-                  {isRecording ? "Creating..." : "Create Fee"}
-                </Button>
+                {feeForm.selectedFeeStructure ? (
+                  <Button 
+                    onClick={handleCreateFeesFromStructure} 
+                    disabled={isCreatingFromStructure || !feeForm.selectedFeeStructure}
+                  >
+                    {isCreatingFromStructure ? "Creating Fee..." : "Create Fee from Structure"}
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={handleCreateFee} 
+                    disabled={isRecording || !feeForm.name || !feeForm.amount}
+                  >
+                    {isRecording ? "Creating..." : "Create Fee"}
+                  </Button>
+                )}
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -560,11 +865,12 @@ export function StudentFeesManagement() {
                 <SelectValue placeholder="All Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="partial">Partial</SelectItem>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="partial">Partial</SelectItem>
+              <SelectItem value="unpaid">Unpaid</SelectItem>
                 <SelectItem value="overdue">Overdue</SelectItem>
-              </SelectContent>
+                        </SelectContent>
             </Select>
           </div>
         </CardContent>
@@ -635,15 +941,15 @@ export function StudentFeesManagement() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{student.currentGradeLevel || student.currentClass || 'N/A'}</TableCell>
+                      <TableCell>{student.currentClass || student.currentGradeLevel || 'Not Enrolled'}</TableCell>
                       <TableCell>GH₵{(studentData.totalFees || 0).toLocaleString()}</TableCell>
                       <TableCell className="text-green-600">GH₵{(studentData.paidAmount || 0).toLocaleString()}</TableCell>
                       <TableCell className="text-red-600">GH₵{(studentData.pendingAmount || 0).toLocaleString()}</TableCell>
                       <TableCell>
-                        <Badge className={getStatusColor(studentData.paymentStatus || 'overdue')}>
+                        <Badge className={getStatusColor(studentData.paymentStatus || 'unpaid')}>
                           <span className="flex items-center gap-1">
-                            {getStatusIcon(studentData.paymentStatus || 'overdue')}
-                            {(studentData.paymentStatus || 'overdue').charAt(0).toUpperCase() + (studentData.paymentStatus || 'overdue').slice(1)}
+                            {getStatusIcon(studentData.paymentStatus || 'unpaid')}
+                            {(studentData.paymentStatus || 'unpaid').charAt(0).toUpperCase() + (studentData.paymentStatus || 'unpaid').slice(1)}
                           </span>
                         </Badge>
                       </TableCell>

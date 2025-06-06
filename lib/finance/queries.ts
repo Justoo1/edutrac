@@ -17,29 +17,99 @@ import { eq, and, desc, asc, sql, between, sum, count } from "drizzle-orm";
 // Student Fees Functions
 export async function getStudentsWithFees(schoolId: string) {
   try {
-    const studentsWithFees = await db
+    // First, get students with their current class information
+    const studentsWithClasses = await db
       .select({
         student: students,
-        totalFees: sql<number>`COALESCE(SUM(${feeTypes.amount}), 0)`,
-        paidAmount: sql<number>`COALESCE(SUM(${feePayments.amount}), 0)`,
-        pendingAmount: sql<number>`COALESCE(SUM(${feeTypes.amount}) - SUM(${feePayments.amount}), 0)`,
-        lastPayment: sql<string>`MAX(${feePayments.paymentDate})`,
-        paymentStatus: sql<string>`
-          CASE 
-            WHEN SUM(${feePayments.amount}) >= SUM(${feeTypes.amount}) THEN 'paid'
-            WHEN SUM(${feePayments.amount}) > 0 THEN 'partial'
-            ELSE 'overdue'
-          END
-        `
+        className: classes.name,
+        gradeLevel: classes.gradeLevel,
       })
       .from(students)
-      .leftJoin(feeTypes, eq(feeTypes.schoolId, students.schoolId))
-      .leftJoin(feePayments, and(
-        eq(feePayments.studentId, students.id),
-        eq(feePayments.feeTypeId, feeTypes.id)
+      .leftJoin(classEnrollments, and(
+        eq(classEnrollments.studentId, students.id),
+        eq(classEnrollments.status, 'active')
       ))
-      .where(eq(students.schoolId, schoolId))
-      .groupBy(students.id);
+      .leftJoin(classes, eq(classes.id, classEnrollments.classId))
+      .where(eq(students.schoolId, schoolId));
+
+    // Then, calculate fees for each student
+    const studentsWithFees = await Promise.all(
+      studentsWithClasses.map(async (studentData) => {
+        const student = studentData.student;
+        
+        // Get applicable fee types for this student
+        const applicableFees = await db
+          .select({
+            id: feeTypes.id,
+            amount: feeTypes.amount,
+            dueDate: feeTypes.dueDate,
+            name: feeTypes.name
+          })
+          .from(feeTypes)
+          .where(
+            and(
+              eq(feeTypes.schoolId, schoolId),
+              // Match fee types that apply to this student's grade level or are for all levels
+              sql`(${feeTypes.gradeLevel} IS NULL OR ${feeTypes.gradeLevel} = '' OR ${feeTypes.gradeLevel} = 'all' OR ${feeTypes.gradeLevel} = ${studentData.gradeLevel})`
+            )
+          );
+
+        // Calculate total fees for this student
+        const totalFees = applicableFees.reduce((sum, fee) => sum + (fee.amount || 0), 0);
+
+        // Get payments made by this student
+        const payments = await db
+          .select({
+            amount: feePayments.amount,
+            paymentDate: feePayments.paymentDate,
+          })
+          .from(feePayments)
+          .innerJoin(feeTypes, eq(feeTypes.id, feePayments.feeTypeId))
+          .where(
+            and(
+              eq(feePayments.studentId, student.id),
+              eq(feeTypes.schoolId, schoolId)
+            )
+          );
+
+        // Calculate payment totals
+        const paidAmount = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+        const pendingAmount = Math.max(0, totalFees - paidAmount);
+        
+        // Get last payment date
+        const lastPayment = payments.length > 0 
+          ? new Date(Math.max(...payments.map(p => new Date(p.paymentDate).getTime())))
+          : null;
+
+        // Determine payment status
+        let paymentStatus = 'unpaid';
+        if (paidAmount >= totalFees && totalFees > 0) {
+          paymentStatus = 'paid';
+        } else if (paidAmount > 0) {
+          paymentStatus = 'partial';
+        } else {
+          // Check if any fees are overdue
+          const today = new Date();
+          const hasOverdueFees = applicableFees.some(fee => 
+            fee.dueDate && new Date(fee.dueDate) < today
+          );
+          paymentStatus = hasOverdueFees ? 'overdue' : 'unpaid';
+        }
+
+        return {
+          student: {
+            ...student,
+            currentClass: studentData.className,
+            currentGradeLevel: studentData.gradeLevel
+          },
+          totalFees,
+          paidAmount,
+          pendingAmount,
+          lastPayment: lastPayment ? lastPayment.toISOString() : null,
+          paymentStatus
+        };
+      })
+    );
 
     return studentsWithFees;
   } catch (error) {
@@ -101,12 +171,34 @@ export async function recordFeePayment(paymentData: {
   notes?: string;
 }) {
   try {
+    // Validate required fields
+    if (!paymentData.recordedBy) {
+      throw new Error("recordedBy is required but was not provided");
+    }
+    
+    if (!paymentData.studentId || !paymentData.feeTypeId) {
+      throw new Error("studentId and feeTypeId are required");
+    }
+
+    console.log("Recording payment with data:", {
+      ...paymentData,
+      recordedBy: paymentData.recordedBy
+    });
+
     const result = await db.transaction(async (tx) => {
       // Insert fee payment
       const payment = await tx
         .insert(feePayments)
         .values({
-          ...paymentData,
+          studentId: paymentData.studentId,
+          feeTypeId: paymentData.feeTypeId,
+          amount: paymentData.amount,
+          paymentMethod: paymentData.paymentMethod,
+          transactionId: paymentData.transactionId,
+          academicYear: paymentData.academicYear,
+          term: paymentData.term,
+          recordedBy: paymentData.recordedBy,
+          notes: paymentData.notes,
           paymentDate: new Date(),
           status: 'paid'
         })
@@ -123,22 +215,26 @@ export async function recordFeePayment(paymentData: {
         throw new Error("Student school information not found");
       }
 
-      // Create financial transaction record
+      // Create financial transaction record with explicit validation
+      const transactionData = {
+        schoolId: studentRecord[0].schoolId,
+        type: 'income' as const,
+        category: 'fees',
+        description: `Fee payment from student`,
+        amount: paymentData.amount,
+        transactionDate: new Date(),
+        referenceType: 'feePayment',
+        referenceId: payment[0].id,
+        paymentMethod: paymentData.paymentMethod,
+        transactionReference: paymentData.transactionId,
+        recordedBy: paymentData.recordedBy
+      };
+
+      console.log("Creating financial transaction with:", transactionData);
+
       await tx
         .insert(financialTransactions)
-        .values({
-          schoolId: studentRecord[0].schoolId,
-          type: 'income',
-          category: 'fees',
-          description: `Fee payment from student`,
-          amount: paymentData.amount,
-          transactionDate: new Date(),
-          referenceType: 'feePayment',
-          referenceId: payment[0].id,
-          paymentMethod: paymentData.paymentMethod,
-          transactionReference: paymentData.transactionId,
-          recordedBy: paymentData.recordedBy
-        });
+        .values(transactionData);
 
       return payment[0];
     });

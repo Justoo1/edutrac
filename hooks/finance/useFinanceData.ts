@@ -259,7 +259,11 @@ export function useFinanceActions() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(feeData),
+        body: JSON.stringify({
+          ...feeData,
+          // Handle the feeStructureId for linking to fee structure
+          feeStructureId: feeData.feeStructureId || null
+        }),
       })
 
       if (!response.ok) {
