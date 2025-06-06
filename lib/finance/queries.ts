@@ -10,7 +10,7 @@ import {
   feeStructures,
   staffSalaries,
   expenses,
-  financialTransactions
+  financialTransactions as financialTransactionsTable
 } from "@/lib/schema";
 import { eq, and, desc, asc, sql, between, sum, count } from "drizzle-orm";
 
@@ -233,7 +233,7 @@ export async function recordFeePayment(paymentData: {
       console.log("Creating financial transaction with:", transactionData);
 
       await tx
-        .insert(financialTransactions)
+        .insert(financialTransactionsTable)
         .values(transactionData);
 
       return payment[0];
@@ -271,6 +271,166 @@ export async function getStaffSalaries(schoolId: string, payPeriod?: string) {
   }
 }
 
+// Process multiple salary payments (for payroll processing)
+export async function processPayrollPayments(payrollData: {
+  schoolId: string;
+  payPeriod: string;
+  paymentMethod: string;
+  processedBy: string;
+  notes?: string;
+}) {
+  try {
+    console.log('Starting payroll processing with data:', payrollData);
+    
+    const result = await db.transaction(async (tx) => {
+      // Get all pending salaries for the specified period
+      const pendingSalaries = await tx
+        .select()
+        .from(staffSalaries)
+        .where(
+          and(
+            eq(staffSalaries.schoolId, payrollData.schoolId),
+            eq(staffSalaries.payPeriod, payrollData.payPeriod),
+            eq(staffSalaries.status, 'pending')
+          )
+        );
+
+      console.log(`Found ${pendingSalaries.length} pending salaries:`, pendingSalaries);
+
+      if (pendingSalaries.length === 0) {
+        throw new Error('No pending salaries found for the specified period');
+      }
+
+      // Process each salary individually to ensure all get updated
+      const updatedSalaries = [];
+      const transactionRecords = [];
+
+      for (const salary of pendingSalaries) {
+        console.log(`Processing salary for staff ID: ${salary.staffId}`);
+        
+        // Update individual salary record
+        const updatedSalary = await tx
+          .update(staffSalaries)
+          .set({
+            status: 'paid',
+            paymentDate: new Date(),
+            paymentMethod: payrollData.paymentMethod,
+            processedBy: payrollData.processedBy,
+            notes: payrollData.notes
+          })
+          .where(eq(staffSalaries.id, salary.id))
+          .returning();
+
+        if (updatedSalary.length > 0) {
+          updatedSalaries.push(updatedSalary[0]);
+          console.log(`Updated salary record:`, updatedSalary[0]);
+
+          // Create financial transaction for this salary
+          const transaction = await tx
+            .insert(financialTransactionsTable)
+            .values({
+              schoolId: payrollData.schoolId,
+              type: 'expense',
+              category: 'salary',
+              description: `Salary payment - ${payrollData.payPeriod}`,
+              amount: updatedSalary[0].netSalary,
+              transactionDate: new Date(),
+              referenceType: 'staffSalary',
+              referenceId: updatedSalary[0].id,
+              paymentMethod: payrollData.paymentMethod,
+              recordedBy: payrollData.processedBy
+            })
+            .returning();
+          
+          transactionRecords.push(transaction[0]);
+          console.log(`Created financial transaction:`, transaction[0]);
+        }
+      }
+
+      console.log(`Successfully processed ${updatedSalaries.length} salaries`);
+
+      return {
+        processedCount: updatedSalaries.length,
+        totalAmount: updatedSalaries.reduce((sum, salary) => sum + salary.netSalary, 0),
+        salaries: updatedSalaries,
+        transactions: transactionRecords
+      };
+    });
+
+    console.log('Payroll processing completed successfully:', result);
+    return result;
+  } catch (error) {
+    console.error("Error processing payroll payments:", error);
+    throw error;
+  }
+}
+
+// Get pending salaries for a specific pay period
+export async function getPendingSalariesForPeriod(schoolId: string, payPeriod: string) {
+  try {
+    const pendingSalaries = await db
+      .select({
+        salary: staffSalaries,
+        staff: staff,
+      })
+      .from(staffSalaries)
+      .innerJoin(staff, eq(staff.id, staffSalaries.staffId))
+      .where(
+        and(
+          eq(staffSalaries.schoolId, schoolId),
+          eq(staffSalaries.payPeriod, payPeriod),
+          eq(staffSalaries.status, 'pending')
+        )
+      )
+      .orderBy(staff.name);
+
+    const summary = {
+      totalStaff: pendingSalaries.length,
+      totalAmount: pendingSalaries.reduce((sum, item) => sum + item.salary.netSalary, 0)
+    };
+
+    return {
+      salaries: pendingSalaries,
+      summary
+    };
+  } catch (error) {
+    console.error("Error fetching pending salaries:", error);
+    throw error;
+  }
+}
+export async function createSalaryRecord(salaryData: {
+  staffId: string;
+  schoolId: string;
+  baseSalary: number;
+  allowances: number;
+  deductions: number;
+  payPeriod: string;
+  academicYear: string;
+  paymentMethod: string;
+  accountNumber?: string;
+  recordedBy: string;
+  notes?: string;
+}) {
+  try {
+    const netSalary = salaryData.baseSalary + salaryData.allowances - salaryData.deductions;
+
+    const result = await db
+      .insert(staffSalaries)
+      .values({
+        ...salaryData,
+        netSalary,
+        status: 'pending', // Create as pending, not paid
+        processedBy: salaryData.recordedBy, // Map recordedBy to processedBy
+      })
+      .returning();
+
+    return result[0];
+  } catch (error) {
+    console.error("Error creating salary record:", error);
+    throw error;
+  }
+}
+
 export async function processSalaryPayment(salaryData: {
   staffId: string;
   schoolId: string;
@@ -301,7 +461,7 @@ export async function processSalaryPayment(salaryData: {
 
       // Create financial transaction record
       await tx
-        .insert(financialTransactions)
+        .insert(financialTransactionsTable)
         .values({
           schoolId: salaryData.schoolId,
           type: 'expense',
@@ -444,21 +604,21 @@ export async function getFinancialOverview(schoolId: string, period?: {
   try {
     const whereCondition = period
       ? and(
-          eq(financialTransactions.schoolId, schoolId),
-          between(financialTransactions.transactionDate, period.startDate, period.endDate)
+          eq(financialTransactionsTable.schoolId, schoolId),
+          between(financialTransactionsTable.transactionDate, period.startDate, period.endDate)
         )
-      : eq(financialTransactions.schoolId, schoolId);
+      : eq(financialTransactionsTable.schoolId, schoolId);
 
     const overview = await db
       .select({
-        type: financialTransactions.type,
-        category: financialTransactions.category,
-        totalAmount: sum(financialTransactions.amount),
-        transactionCount: count(financialTransactions.id)
+        type: financialTransactionsTable.type,
+        category: financialTransactionsTable.category,
+        totalAmount: sum(financialTransactionsTable.amount),
+        transactionCount: count(financialTransactionsTable.id)
       })
-      .from(financialTransactions)
+      .from(financialTransactionsTable)
       .where(whereCondition)
-      .groupBy(financialTransactions.type, financialTransactions.category);
+      .groupBy(financialTransactionsTable.type, financialTransactionsTable.category);
 
     return overview;
   } catch (error) {
@@ -471,22 +631,22 @@ export async function getMonthlyFinancialData(schoolId: string, year: number) {
   try {
     const data = await db
       .select({
-        month: sql<string>`TO_CHAR(${financialTransactions.transactionDate}, 'YYYY-MM')`,
-        type: financialTransactions.type,
-        totalAmount: sum(financialTransactions.amount),
+        month: sql<string>`TO_CHAR(${financialTransactionsTable.transactionDate}, 'YYYY-MM')`,
+        type: financialTransactionsTable.type,
+        totalAmount: sum(financialTransactionsTable.amount),
       })
-      .from(financialTransactions)
+      .from(financialTransactionsTable)
       .where(
         and(
-          eq(financialTransactions.schoolId, schoolId),
-          sql`EXTRACT(YEAR FROM ${financialTransactions.transactionDate}) = ${year}`
+          eq(financialTransactionsTable.schoolId, schoolId),
+          sql`EXTRACT(YEAR FROM ${financialTransactionsTable.transactionDate}) = ${year}`
         )
       )
       .groupBy(
-        sql`TO_CHAR(${financialTransactions.transactionDate}, 'YYYY-MM')`,
-        financialTransactions.type
+        sql`TO_CHAR(${financialTransactionsTable.transactionDate}, 'YYYY-MM')`,
+        financialTransactionsTable.type
       )
-      .orderBy(sql`TO_CHAR(${financialTransactions.transactionDate}, 'YYYY-MM')`);
+      .orderBy(sql`TO_CHAR(${financialTransactionsTable.transactionDate}, 'YYYY-MM')`);
 
     return data;
   } catch (error) {
@@ -610,23 +770,23 @@ export async function getPaymentHistory(studentId: string, limit: number = 20) {
 
 export async function getSchoolFinancialSummary(schoolId: string, academicYear?: string) {
   try {
-    const whereConditions = [eq(financialTransactions.schoolId, schoolId)];
+    const whereConditions = [eq(financialTransactionsTable.schoolId, schoolId)];
     
     if (academicYear) {
       whereConditions.push(
-        sql`EXTRACT(YEAR FROM ${financialTransactions.transactionDate}) = ${academicYear.split('-')[0]}`
+        sql`EXTRACT(YEAR FROM ${financialTransactionsTable.transactionDate}) = ${academicYear.split('-')[0]}`
       );
     }
 
     const summary = await db
       .select({
-        type: financialTransactions.type,
-        totalAmount: sum(financialTransactions.amount),
-        transactionCount: count(financialTransactions.id),
+        type: financialTransactionsTable.type,
+        totalAmount: sum(financialTransactionsTable.amount),
+        transactionCount: count(financialTransactionsTable.id),
       })
-      .from(financialTransactions)
+      .from(financialTransactionsTable)
       .where(and(...whereConditions))
-      .groupBy(financialTransactions.type);
+      .groupBy(financialTransactionsTable.type);
 
     const totalIncome = summary.find(s => s.type === 'income')?.totalAmount || 0;
     const totalExpenses = summary.find(s => s.type === 'expense')?.totalAmount || 0;

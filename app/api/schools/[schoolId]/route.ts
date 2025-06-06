@@ -7,7 +7,7 @@ import { and, eq } from "drizzle-orm";
 // GET: Fetch school details
 export async function GET(
   req: Request,
-  { params }: { params: { schoolId: string } }
+  { params }: { params: Promise<{ schoolId: string }> }
 ) {
   try {
     const session = await getSession();
@@ -15,7 +15,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { schoolId } = params;
+    const { schoolId } = await params;
     
     // Fetch the school details
     const school = await db.query.schools.findFirst({
@@ -41,7 +41,7 @@ export async function GET(
 // PATCH: Update school details
 export async function PATCH(
   req: Request,
-  { params }: { params: { schoolId: string } }
+  { params }: { params: Promise<{ schoolId: string }> }
 ) {
   try {
     const session = await getSession();
@@ -49,7 +49,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { schoolId } = params;
+    const { schoolId } = await params;
     
     // Fetch the existing school to verify ownership
     const school = await db.query.schools.findFirst({

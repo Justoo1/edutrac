@@ -117,3 +117,10 @@ export function getOrdinalRank(n: number): string {
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
+
+// Utility function to format date to YYYY-MM format
+export const formatDateToPayPeriod = (date: Date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  return `${year}-${month}`
+}

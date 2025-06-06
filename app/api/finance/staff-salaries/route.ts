@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStaffSalaries, processSalaryPayment } from "@/lib/finance/queries";
+import { getStaffSalaries, processSalaryPayment, createSalaryRecord, processPayrollPayments, getPendingSalariesForPeriod } from "@/lib/finance/queries";
 import { getServerSession } from "next-auth";
 
 export async function GET(request: NextRequest) {
@@ -37,17 +37,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const salary = await processSalaryPayment({
+    
+    // Use createSalaryRecord for adding new salary records
+    const salary = await createSalaryRecord({
       ...body,
-      processedBy: session.user.id
+      recordedBy: session.user.id
     });
 
     return NextResponse.json(salary, { status: 201 });
 
   } catch (error) {
-    console.error("Error processing salary payment:", error);
+    console.error("Error creating salary record:", error);
     return NextResponse.json(
-      { error: "Failed to process salary payment" },
+      { error: "Failed to create salary record" },
       { status: 500 }
     );
   }
