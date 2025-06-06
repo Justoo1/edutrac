@@ -132,6 +132,60 @@ export function StudentFeesManagement() {
     selectedFeeStructure: ""
   })
   const [isCreatingFromStructure, setIsCreatingFromStructure] = useState(false)
+  const [applicableFeeTypes, setApplicableFeeTypes] = useState<any[]>([])
+  const [selectedStudentInfo, setSelectedStudentInfo] = useState<any>(null)
+
+  // Function to get applicable fee types for selected student
+  const getApplicableFeeTypes = async (studentId: string) => {
+    if (!studentId) {
+      setApplicableFeeTypes([])
+      setSelectedStudentInfo(null)
+      return
+    }
+
+    try {
+      // Find the selected student's information
+      const studentData = students.find((s: any) => s.student.id === studentId)
+      if (!studentData) return
+
+      setSelectedStudentInfo(studentData)
+      
+      const studentGradeLevel = studentData.student.currentGradeLevel
+      const currentYear = academicYears.find(year => year.isCurrent) || academicYears[0]
+      const currentTerm = terms.find(term => term.isCurrent) || terms[0]
+
+      // Filter fee types based on student's grade level and current academic period
+      const applicableFees = feeTypes.filter((fee: any) => {
+        // Check if fee applies to this grade level
+        const gradeMatches = !fee.gradeLevel || 
+                           fee.gradeLevel === '' || 
+                           fee.gradeLevel === 'all' || 
+                           fee.gradeLevel === studentGradeLevel
+        
+        // Check if fee is for current academic year/term
+        const yearMatches = !currentYear || fee.academicYear === currentYear.name
+        const termMatches = !currentTerm || fee.term === currentTerm.name
+        
+        return gradeMatches && yearMatches && termMatches
+      })
+
+      setApplicableFeeTypes(applicableFees)
+    } catch (error) {
+      console.error('Error filtering fee types:', error)
+      setApplicableFeeTypes([])
+    }
+  }
+
+  // Handle student selection change
+  const handleStudentChange = (studentId: string) => {
+    setPaymentForm({
+      ...paymentForm, 
+      studentId,
+      feeTypeId: "", // Reset fee type when student changes
+      amount: 0
+    })
+    getApplicableFeeTypes(studentId)
+  }
 
   // Fetch data
   const { students, isLoading: studentsLoading, mutate } = useStudentFees(schoolId)
@@ -259,6 +313,8 @@ export function StudentFeesManagement() {
         transactionId: "",
         notes: ""
       })
+      setApplicableFeeTypes([])
+      setSelectedStudentInfo(null)
       mutate() // Refresh data
     } catch (error) {
       console.error("Payment recording error:", error)
@@ -668,50 +724,81 @@ export function StudentFeesManagement() {
                 Add Payment
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Record New Payment</DialogTitle>
                 <DialogDescription>Add a new fee payment for a student</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label>Student</Label>
-                  <Select value={paymentForm.studentId} onValueChange={(value) => 
-                    setPaymentForm({...paymentForm, studentId: value})
-                  }>
+                  <Label>Student *</Label>
+                  <Select value={paymentForm.studentId} onValueChange={handleStudentChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select student" />
                     </SelectTrigger>
                     <SelectContent>
                       {students.map((student: any) => (
                         <SelectItem key={student.student.id} value={student.student.id}>
-                          {student.student.firstName} {student.student.lastName} - {student.student.studentId}
+                          {student.student.firstName} {student.student.lastName} - {student.student.studentId} ({student.student.currentGradeLevel || 'No Class'})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {selectedStudentInfo && (
+                    <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+                      <span className="font-medium">Selected:</span> {selectedStudentInfo.student.firstName} {selectedStudentInfo.student.lastName} 
+                      <span className="text-blue-600">({selectedStudentInfo.student.currentGradeLevel || 'No Grade Level'})</span>
+                      <br />
+                      <span className="text-xs text-gray-600">
+                        Outstanding: GH₵{(selectedStudentInfo.pendingAmount || 0).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <Label>Fee Type</Label>
-                  <Select value={paymentForm.feeTypeId} onValueChange={(value) => {
-                    const selectedFee = feeTypes.find((f:any ) => f.id === value)
-                    setPaymentForm({
-                      ...paymentForm, 
-                      feeTypeId: value,
-                      amount: selectedFee?.amount || 0
-                    })
-                  }}>
+                  <Label>Fee Type *</Label>
+                  <Select 
+                    value={paymentForm.feeTypeId} 
+                    onValueChange={(value) => {
+                      const selectedFee = applicableFeeTypes.find((f: any) => f.id === value)
+                      setPaymentForm({
+                        ...paymentForm, 
+                        feeTypeId: value,
+                        amount: selectedFee?.amount || 0
+                      })
+                    }}
+                    disabled={!paymentForm.studentId}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select fee type" />
+                      <SelectValue placeholder={
+                        !paymentForm.studentId 
+                          ? "Select student first" 
+                          : applicableFeeTypes.length === 0 
+                          ? "No applicable fees found" 
+                          : "Select fee type"
+                      } />
                     </SelectTrigger>
                     <SelectContent>
-                      {feeTypes.map((fee: any) => (
+                      {applicableFeeTypes.map((fee: any) => (
                         <SelectItem key={fee.id} value={fee.id}>
-                          {fee.name} - GH₵{fee.amount}
+                          {fee.name} - GH₵{fee.amount?.toLocaleString()}
+                          {fee.gradeLevel && fee.gradeLevel !== 'all' && (
+                            <span className="text-xs text-gray-500 ml-2">({fee.gradeLevel})</span>
+                          )}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {paymentForm.studentId && applicableFeeTypes.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ No applicable fees found for this student's grade level in the current academic period.
+                    </p>
+                  )}
+                  {applicableFeeTypes.length > 0 && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✅ {applicableFeeTypes.length} applicable fee{applicableFeeTypes.length !== 1 ? 's' : ''} found
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label>Amount (GH₵)</Label>
@@ -723,7 +810,7 @@ export function StudentFeesManagement() {
                   />
                   {paymentForm.feeTypeId && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Expected: GH₵{feeTypes.find((f: { id: string; amount: number }) => f.id === paymentForm.feeTypeId)?.amount || 0}
+                      Expected: GH₵{applicableFeeTypes.find((f: any) => f.id === paymentForm.feeTypeId)?.amount?.toLocaleString() || 0}
                     </p>
                   )}
                 </div>
@@ -761,10 +848,25 @@ export function StudentFeesManagement() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+                <Button variant="outline" onClick={() => {
+                  setShowPaymentDialog(false)
+                  setPaymentForm({
+                    studentId: "",
+                    feeTypeId: "",
+                    amount: 0,
+                    paymentMethod: "",
+                    transactionId: "",
+                    notes: ""
+                  })
+                  setApplicableFeeTypes([])
+                  setSelectedStudentInfo(null)
+                }}>
                   Cancel
                 </Button>
-                <Button onClick={handleRecordPayment} disabled={isRecording}>
+                <Button 
+                  onClick={handleRecordPayment} 
+                  disabled={isRecording || !paymentForm.studentId || !paymentForm.feeTypeId || !paymentForm.amount}
+                >
                   {isRecording ? "Recording..." : "Record Payment"}
                 </Button>
               </DialogFooter>
