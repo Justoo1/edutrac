@@ -10,7 +10,8 @@ import {
   feeStructures,
   staffSalaries,
   expenses,
-  financialTransactions as financialTransactionsTable
+  financialTransactions as financialTransactionsTable,
+  financialTransactions
 } from "@/lib/schema";
 import { eq, and, desc, asc, sql, between, sum, count } from "drizzle-orm";
 
@@ -365,7 +366,96 @@ export async function processPayrollPayments(payrollData: {
   }
 }
 
-// Get pending salaries for a specific pay period
+// Delete salary record
+export async function deleteSalaryRecord(salaryId: string, deletedBy: string) {
+  try {
+    console.log({ salaryId, deletedBy });
+    const result = await db.transaction(async (tx) => {
+      // Get the salary record first
+      const salaryRecord = await tx
+        .select()
+        .from(staffSalaries)
+        .where(eq(staffSalaries.id, salaryId))
+        .limit(1);
+
+      if (salaryRecord.length === 0) {
+        throw new Error('Salary record not found');
+      }
+
+      const salary = salaryRecord[0];
+
+      // Delete related financial transactions if salary was paid
+      if (salary.status === 'paid') {
+        await tx
+          .delete(financialTransactionsTable)
+          .where(
+            and(
+              eq(financialTransactionsTable.referenceType, 'staffSalary'),
+              eq(financialTransactionsTable.referenceId, salaryId)
+            )
+          );
+      }
+
+      // Delete the salary record
+      const deletedSalary = await tx
+        .delete(staffSalaries)
+        .where(eq(staffSalaries.id, salaryId))
+        .returning();
+
+      return deletedSalary[0];
+    });
+
+    return result;
+  } catch (error) {
+    console.error("Error deleting salary record:", error);
+    throw error;
+  }
+}
+
+// Update salary record
+export async function updateSalaryRecord(salaryId: string, updateData: {
+  baseSalary?: number;
+  allowances?: number;
+  deductions?: number;
+  paymentMethod?: string;
+  accountNumber?: string;
+  notes?: string;
+  updatedBy: string;
+}) {
+  try {
+    // Calculate new net salary if amounts changed
+    const netSalary = updateData.baseSalary !== undefined || updateData.allowances !== undefined || updateData.deductions !== undefined
+      ? (updateData.baseSalary || 0) + (updateData.allowances || 0) - (updateData.deductions || 0)
+      : undefined;
+
+    const updateValues: any = {
+      ...updateData,
+      updatedAt: new Date(),
+    };
+
+    if (netSalary !== undefined) {
+      updateValues.netSalary = netSalary;
+    }
+
+    // Remove updatedBy from the update values as it's not a column
+    delete updateValues.updatedBy;
+
+    const result = await db
+      .update(staffSalaries)
+      .set(updateValues)
+      .where(eq(staffSalaries.id, salaryId))
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error('Salary record not found');
+    }
+
+    return result[0];
+  } catch (error) {
+    console.error("Error updating salary record:", error);
+    throw error;
+  }
+}
 export async function getPendingSalariesForPeriod(schoolId: string, payPeriod: string) {
   try {
     const pendingSalaries = await db

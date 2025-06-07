@@ -16,7 +16,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Search, Filter, Download, Plus, Edit, Eye, Send, Calendar, Users, DollarSign, CheckCircle2, Clock, AlertTriangle, Calculator, Trash2 } from "lucide-react"
-import { formatDateToPayPeriod } from "@/lib/utils"
 import { toast } from "sonner"
 
 // Type definitions for payroll data
@@ -62,13 +61,12 @@ export function StaffSalaryManagement() {
   const [showPayrollDialog, setShowPayrollDialog] = useState(false)
   const [showDetailsDialog, setShowDetailsDialog] = useState(false)
   const [showAddSalaryDialog, setShowAddSalaryDialog] = useState(false)
-  const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
   const [showEditSalaryDialog, setShowEditSalaryDialog] = useState(false)
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false)
-  const [salaryToDelete, setSalaryToDelete] = useState<any>(null)
-  const [salaryToEdit, setSalaryToEdit] = useState<any>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
+  const [selectedSalaryRecord, setSelectedSalaryRecord] = useState<any>(null)
+  const [isDeletingSalary, setIsDeletingSalary] = useState(false)
+  const [isEditingSalary, setIsEditingSalary] = useState(false)
   const [selectedPayPeriod, setSelectedPayPeriod] = useState('')
   const [payrollDetails, setPayrollDetails] = useState<PayrollDetails | null>(null)
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer')
@@ -78,9 +76,6 @@ export function StaffSalaryManagement() {
   
   // Form state for Edit Staff Salary dialog
   const [editSalaryForm, setEditSalaryForm] = useState({
-    id: '',
-    staffId: '',
-    payPeriod: '',
     baseSalary: '',
     allowances: '',
     deductions: '',
@@ -88,6 +83,23 @@ export function StaffSalaryManagement() {
     accountNumber: '',
     notes: ''
   })
+  // Utility function to format date to YYYY-MM format
+  const formatDateToPayPeriod = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    return `${year}-${month}`
+  }
+
+  // Simple toast function
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    if (type === 'success') {
+      toast.success(message)
+    } else {
+      toast.error(message)
+    }
+  }
+
+  // Form state for Add Staff Salary dialog
   const [addSalaryForm, setAddSalaryForm] = useState({
     staffId: '',
     payPeriod: formatDateToPayPeriod(new Date()), // Default to current month
@@ -237,15 +249,120 @@ export function StaffSalaryManagement() {
     setAddSalaryForm(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleEditSalaryFormChange = (field: string, value: string) => {
-    setEditSalaryForm(prev => ({ ...prev, [field]: value }))
+  // const handleEditSalaryFormChange = (field: string, value: string) => {
+  //   setEditSalaryForm(prev => ({ ...prev, [field]: value }))
+  // }
+
+  const handleEditSalarySubmit = async () => {
+    if (!selectedSalaryRecord) return
+
+    setIsEditingSalary(true)
+    try {
+      // Validate salary amounts
+      const baseSalary = parseFloat(editSalaryForm.baseSalary) || 0
+      const allowances = parseFloat(editSalaryForm.allowances) || 0
+      const deductions = parseFloat(editSalaryForm.deductions) || 0
+
+      if (baseSalary <= 0) {
+        toast.error('Base salary must be greater than 0')
+        return
+      }
+
+      if (deductions < 0 || allowances < 0) {
+        toast.error('Allowances and deductions cannot be negative')
+        return
+      }
+
+      // Prepare the update data
+      const updateData = {
+        baseSalary,
+        allowances,
+        deductions,
+        paymentMethod: editSalaryForm.paymentMethod || 'bank_transfer',
+        accountNumber: editSalaryForm.accountNumber || undefined,
+        notes: editSalaryForm.notes || undefined
+      }
+
+      console.log('Updating salary with data:', updateData)
+
+      // Make the API call
+      const response = await fetch(`/api/finance/staff-salaries/${selectedSalaryRecord.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update salary record')
+      }
+
+      const result = await response.json()
+      console.log('Salary record updated:', result)
+      
+      // Reset form and close dialog
+      resetEditSalaryForm()
+      setShowEditSalaryDialog(false)
+      setSelectedSalaryRecord(null)
+      setSelectedEmployee(null)
+      
+      // Refresh the salary data
+      await refetch()
+      
+      // Show success message
+      toast.success('Salary record updated successfully!')
+      
+    } catch (error) {
+      console.error('Error updating salary:', error)
+      toast.error(`Error updating salary: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsEditingSalary(false)
+    }
+  }
+
+  const handleDeleteSalary = async () => {
+    if (!selectedSalaryRecord) return
+
+    setIsDeletingSalary(true)
+    try {
+      console.log({selectedSalaryRecord})
+
+      // Make the API call
+      const response = await fetch(`/api/finance/staff-salaries/${selectedSalaryRecord.id}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete salary record')
+      }
+
+      const result = await response.json()
+      console.log('Salary record deleted:', result)
+      
+      // Close dialog and reset state
+      setShowDeleteConfirmDialog(false)
+      setSelectedSalaryRecord(null)
+      setSelectedEmployee(null)
+      
+      // Refresh the salary data
+      await refetch()
+      
+      // Show success message
+      toast.success('Salary record deleted successfully!')
+      
+    } catch (error) {
+      console.error('Error deleting salary:', error)
+      toast.error(`Error deleting salary: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsDeletingSalary(false)
+    }
   }
 
   const resetEditSalaryForm = () => {
     setEditSalaryForm({
-      id: '',
-      staffId: '',
-      payPeriod: '',
       baseSalary: '',
       allowances: '',
       deductions: '',
@@ -255,28 +372,33 @@ export function StaffSalaryManagement() {
     })
   }
 
-  const handleEditSalary = (staff: any) => {
-    // Find the salary record for this staff member (you'll need to modify this based on your data structure)
-    // For now, I'm assuming staff object contains salary information
+  const openEditDialog = (salary: any, staff: any) => {
+    console.log({salary, staff})
+    setSelectedSalaryRecord(salary)
+    setSelectedEmployee(staff)
     setEditSalaryForm({
-      id: staff.salaryId || staff.id, // Adjust based on your data structure
-      staffId: staff.id,
-      payPeriod: staff.payPeriod || '',
-      baseSalary: staff.baseSalary?.toString() || '',
-      allowances: staff.allowances?.toString() || '',
-      deductions: staff.deductions?.toString() || '',
-      paymentMethod: staff.paymentMethod || '',
-      accountNumber: staff.accountNumber || '',
-      notes: staff.notes || ''
+      baseSalary: salary.baseSalary?.toString() || '',
+      allowances: salary.allowances?.toString() || '',
+      deductions: salary.deductions?.toString() || '',
+      paymentMethod: salary.paymentMethod || '',
+      accountNumber: salary.accountNumber || '',
+      notes: salary.notes || ''
     })
-    setSalaryToEdit(staff)
     setShowEditSalaryDialog(true)
   }
 
-  const handleDeleteSalary = (staff: any) => {
-    setSalaryToDelete(staff)
+  const openDeleteDialog = (salary: any, staff: any) => {
+    console.log({salary, staff})
+    setSelectedSalaryRecord(salary)
+    setSelectedEmployee(staff)
     setShowDeleteConfirmDialog(true)
   }
+
+  const handleEditSalaryFormChange = (field: string, value: string) => {
+    setEditSalaryForm(prev => ({ ...prev, [field]: value }))
+  }
+
+
 
   const resetAddSalaryForm = () => {
     setAddSalaryForm({
@@ -291,139 +413,19 @@ export function StaffSalaryManagement() {
     })
   }
 
-  const handleEditSalarySubmit = async () => {
-    setIsEditing(true)
-    try {
-      // Validate required fields
-      if (!editSalaryForm.staffId || !editSalaryForm.payPeriod || !editSalaryForm.baseSalary) {
-        alert('Please fill in all required fields')
-        return
-      }
 
-      if (!school?.id) {
-        alert('School information not available')
-        return
-      }
-
-      // Validate salary amounts
-      const baseSalary = parseFloat(editSalaryForm.baseSalary)
-      const allowances = parseFloat(editSalaryForm.allowances) || 0
-      const deductions = parseFloat(editSalaryForm.deductions) || 0
-
-      if (baseSalary <= 0) {
-        alert('Base salary must be greater than 0')
-        return
-      }
-
-      if (deductions < 0 || allowances < 0) {
-        alert('Allowances and deductions cannot be negative')
-        return
-      }
-
-      // Prepare the data for the API call
-      const salaryData = {
-        id: editSalaryForm.id,
-        staffId: editSalaryForm.staffId,
-        schoolId: school.id,
-        baseSalary,
-        allowances,
-        deductions,
-        payPeriod: editSalaryForm.payPeriod,
-        academicYear: editSalaryForm.payPeriod.split('-')[0],
-        paymentMethod: editSalaryForm.paymentMethod || 'bank_transfer',
-        accountNumber: editSalaryForm.accountNumber || undefined,
-        notes: editSalaryForm.notes || undefined
-      }
-
-      console.log('Updating salary data:', salaryData)
-
-      // Make the API call
-      const response = await fetch(`/api/finance/staff-salaries/${editSalaryForm.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(salaryData),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to update salary record')
-      }
-
-      const result = await response.json()
-      console.log('Salary record updated:', result)
-      
-      // Reset form and close dialog
-      resetEditSalaryForm()
-      setShowEditSalaryDialog(false)
-      setSalaryToEdit(null)
-      
-      // Refresh the salary data
-      await refetch()
-      
-      // Show success message
-      alert('Salary record updated successfully!')
-      
-    } catch (error) {
-      console.error('Error updating salary:', error)
-      alert(`Error updating salary: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
-      setIsEditing(false)
-    }
-  }
-
-  const handleConfirmDelete = async () => {
-    if (!salaryToDelete) return
-    
-    setIsDeleting(true)
-    try {
-      console.log('Deleting salary record:', salaryToDelete)
-
-      // Make the API call to delete
-      const response = await fetch(`/api/finance/staff-salaries/${salaryToDelete.salaryId || salaryToDelete.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to delete salary record')
-      }
-
-      console.log('Salary record deleted successfully')
-      
-      // Reset states and close dialog
-      setShowDeleteConfirmDialog(false)
-      setSalaryToDelete(null)
-      
-      // Refresh the salary data
-      await refetch()
-      
-      // Show success message
-      alert('Salary record deleted successfully!')
-      
-    } catch (error) {
-      console.error('Error deleting salary:', error)
-      alert(`Error deleting salary: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    } finally {
-      setIsDeleting(false)
-    }
-  }
 
   const handleAddSalarySubmit = async () => {
     setIsSavingSalary(true)
     try {
       // Validate required fields
       if (!addSalaryForm.staffId || !addSalaryForm.payPeriod || !addSalaryForm.baseSalary) {
-        alert('Please fill in all required fields')
+        toast.error('Please fill in all required fields')
         return
       }
 
       if (!school?.id) {
-        alert('School information not available')
+        toast.error('School information not available')
         return
       }
 
@@ -433,12 +435,12 @@ export function StaffSalaryManagement() {
       const deductions = parseFloat(addSalaryForm.deductions) || 0
 
       if (baseSalary <= 0) {
-        alert('Base salary must be greater than 0')
+        toast.error('Base salary must be greater than 0')
         return
       }
 
       if (deductions < 0 || allowances < 0) {
-        alert('Allowances and deductions cannot be negative')
+        toast.error('Allowances and deductions cannot be negative')
         return
       }
 
@@ -483,11 +485,11 @@ export function StaffSalaryManagement() {
       await refetch()
       
       // Show success message
-      toast.success('Salary record saved successfully!')
+      showToast('Salary record saved successfully!')
       
     } catch (error) {
       console.error('Error saving salary:', error)
-      toast.error(`Error saving salary: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      showToast(`Error saving salary: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
     } finally {
       setIsSavingSalary(false)
     }
@@ -1063,17 +1065,18 @@ export function StaffSalaryManagement() {
                           <Button 
                             size="icon" 
                             variant="ghost"
-                            onClick={() => handleEditSalary(staff)}
-                            title="Edit Salary"
+                            onClick={() => openEditDialog(staff, staff)}
+                            disabled={staff.paymentStatus === 'paid'}
+                            title={staff.paymentStatus === 'paid' ? 'Cannot edit paid salary' : 'Edit salary'}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button 
                             size="icon" 
                             variant="ghost"
-                            onClick={() => handleDeleteSalary(staff)}
-                            title="Delete Salary"
+                            onClick={() => openDeleteDialog(staff, staff)}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Delete salary record"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -1177,6 +1180,155 @@ export function StaffSalaryManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Salary Dialog */}
+      <Dialog open={showEditSalaryDialog} onOpenChange={(open) => {
+        if (!open) {
+          resetEditSalaryForm()
+          setSelectedSalaryRecord(null)
+          setSelectedEmployee(null)
+        }
+        setShowEditSalaryDialog(open)
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Staff Salary Record</DialogTitle>
+            <DialogDescription>
+              Edit salary information for {selectedEmployee?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Base Salary (GH₵) <span className="text-red-500">*</span></Label>
+                <Input 
+                  type="number" 
+                  placeholder="0.00"
+                  value={editSalaryForm.baseSalary}
+                  onChange={(e) => handleEditSalaryFormChange('baseSalary', e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Allowances (GH₵)</Label>
+                <Input 
+                  type="number" 
+                  placeholder="0.00"
+                  value={editSalaryForm.allowances}
+                  onChange={(e) => handleEditSalaryFormChange('allowances', e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Deductions (GH₵)</Label>
+                <Input 
+                  type="number" 
+                  placeholder="0.00"
+                  value={editSalaryForm.deductions}
+                  onChange={(e) => handleEditSalaryFormChange('deductions', e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Payment Method</Label>
+                <Select value={editSalaryForm.paymentMethod} onValueChange={(value) => handleEditSalaryFormChange('paymentMethod', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                    <SelectItem value="cash">Cash</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Account Number (Optional)</Label>
+              <Input 
+                placeholder="Account number or mobile money number"
+                value={editSalaryForm.accountNumber}
+                onChange={(e) => handleEditSalaryFormChange('accountNumber', e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Notes (Optional)</Label>
+              <Textarea 
+                placeholder="Additional notes..."
+                value={editSalaryForm.notes}
+                onChange={(e) => handleEditSalaryFormChange('notes', e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              resetEditSalaryForm()
+              setShowEditSalaryDialog(false)
+              setSelectedSalaryRecord(null)
+              setSelectedEmployee(null)
+            }} disabled={isEditingSalary}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditSalarySubmit} disabled={isEditingSalary}>
+              {isEditingSalary ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Updating...
+                </>
+              ) : (
+                'Update Salary Record'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirmDialog} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedSalaryRecord(null)
+          setSelectedEmployee(null)
+        }
+        setShowDeleteConfirmDialog(open)
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Salary Record</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the salary record for {selectedEmployee?.name}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSalaryRecord && (
+            <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+              <h4 className="font-medium text-red-800 mb-2">Record Details:</h4>
+              <div className="space-y-1 text-sm text-red-700">
+                <p><span className="font-medium">Staff:</span> {selectedEmployee?.name}</p>
+                <p><span className="font-medium">Pay Period:</span> {selectedSalaryRecord.payPeriod}</p>
+                <p><span className="font-medium">Net Salary:</span> GH₵{selectedSalaryRecord.netSalary?.toLocaleString()}</p>
+                <p><span className="font-medium">Status:</span> {selectedSalaryRecord.paymentStatus || selectedSalaryRecord.status}</p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowDeleteConfirmDialog(false)
+              setSelectedSalaryRecord(null)
+              setSelectedEmployee(null)
+            }} disabled={isDeletingSalary}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteSalary} disabled={isDeletingSalary}>
+              {isDeletingSalary ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Deleting...
+                </>
+              ) : (
+                'Delete Record'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

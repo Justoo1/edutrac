@@ -100,6 +100,7 @@ export function useStaffSalaries(schoolId?: string, payPeriod?: string) {
         }
 
         const result = await response.json()
+        console.log(result)
         setData(result)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred')
@@ -123,7 +124,8 @@ export function useStaffSalaries(schoolId?: string, payPeriod?: string) {
     const nameInitials = staff.name?.split(' ').map(n => n[0]).join('') || 'ST'
     
     return {
-      id: staff.id,
+      staffId: staff.id,
+      id: salary.id,
       name: staff.name || 'Unknown Staff',
       position: staff.position || 'Staff Member',
       department: staff.department || 'General',
