@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Search, Filter, Download, Plus, Edit, Eye, Send, Calendar, Users, DollarSign, CheckCircle2, Clock, AlertTriangle, Calculator } from "lucide-react"
+import { Search, Filter, Download, Plus, Edit, Eye, Send, Calendar, Users, DollarSign, CheckCircle2, Clock, AlertTriangle, Calculator, Trash2 } from "lucide-react"
 import { formatDateToPayPeriod } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -63,6 +63,12 @@ export function StaffSalaryManagement() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false)
   const [showAddSalaryDialog, setShowAddSalaryDialog] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
+  const [showEditSalaryDialog, setShowEditSalaryDialog] = useState(false)
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false)
+  const [salaryToDelete, setSalaryToDelete] = useState<any>(null)
+  const [salaryToEdit, setSalaryToEdit] = useState<any>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   const [selectedPayPeriod, setSelectedPayPeriod] = useState('')
   const [payrollDetails, setPayrollDetails] = useState<PayrollDetails | null>(null)
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer')
@@ -70,7 +76,18 @@ export function StaffSalaryManagement() {
   const [isProcessingPayroll, setIsProcessingPayroll] = useState(false)
   const [isSavingSalary, setIsSavingSalary] = useState(false)
   
-  // Form state for Add Staff Salary dialog
+  // Form state for Edit Staff Salary dialog
+  const [editSalaryForm, setEditSalaryForm] = useState({
+    id: '',
+    staffId: '',
+    payPeriod: '',
+    baseSalary: '',
+    allowances: '',
+    deductions: '',
+    paymentMethod: '',
+    accountNumber: '',
+    notes: ''
+  })
   const [addSalaryForm, setAddSalaryForm] = useState({
     staffId: '',
     payPeriod: formatDateToPayPeriod(new Date()), // Default to current month
@@ -220,6 +237,47 @@ export function StaffSalaryManagement() {
     setAddSalaryForm(prev => ({ ...prev, [field]: value }))
   }
 
+  const handleEditSalaryFormChange = (field: string, value: string) => {
+    setEditSalaryForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  const resetEditSalaryForm = () => {
+    setEditSalaryForm({
+      id: '',
+      staffId: '',
+      payPeriod: '',
+      baseSalary: '',
+      allowances: '',
+      deductions: '',
+      paymentMethod: '',
+      accountNumber: '',
+      notes: ''
+    })
+  }
+
+  const handleEditSalary = (staff: any) => {
+    // Find the salary record for this staff member (you'll need to modify this based on your data structure)
+    // For now, I'm assuming staff object contains salary information
+    setEditSalaryForm({
+      id: staff.salaryId || staff.id, // Adjust based on your data structure
+      staffId: staff.id,
+      payPeriod: staff.payPeriod || '',
+      baseSalary: staff.baseSalary?.toString() || '',
+      allowances: staff.allowances?.toString() || '',
+      deductions: staff.deductions?.toString() || '',
+      paymentMethod: staff.paymentMethod || '',
+      accountNumber: staff.accountNumber || '',
+      notes: staff.notes || ''
+    })
+    setSalaryToEdit(staff)
+    setShowEditSalaryDialog(true)
+  }
+
+  const handleDeleteSalary = (staff: any) => {
+    setSalaryToDelete(staff)
+    setShowDeleteConfirmDialog(true)
+  }
+
   const resetAddSalaryForm = () => {
     setAddSalaryForm({
       staffId: '',
@@ -233,17 +291,139 @@ export function StaffSalaryManagement() {
     })
   }
 
+  const handleEditSalarySubmit = async () => {
+    setIsEditing(true)
+    try {
+      // Validate required fields
+      if (!editSalaryForm.staffId || !editSalaryForm.payPeriod || !editSalaryForm.baseSalary) {
+        alert('Please fill in all required fields')
+        return
+      }
+
+      if (!school?.id) {
+        alert('School information not available')
+        return
+      }
+
+      // Validate salary amounts
+      const baseSalary = parseFloat(editSalaryForm.baseSalary)
+      const allowances = parseFloat(editSalaryForm.allowances) || 0
+      const deductions = parseFloat(editSalaryForm.deductions) || 0
+
+      if (baseSalary <= 0) {
+        alert('Base salary must be greater than 0')
+        return
+      }
+
+      if (deductions < 0 || allowances < 0) {
+        alert('Allowances and deductions cannot be negative')
+        return
+      }
+
+      // Prepare the data for the API call
+      const salaryData = {
+        id: editSalaryForm.id,
+        staffId: editSalaryForm.staffId,
+        schoolId: school.id,
+        baseSalary,
+        allowances,
+        deductions,
+        payPeriod: editSalaryForm.payPeriod,
+        academicYear: editSalaryForm.payPeriod.split('-')[0],
+        paymentMethod: editSalaryForm.paymentMethod || 'bank_transfer',
+        accountNumber: editSalaryForm.accountNumber || undefined,
+        notes: editSalaryForm.notes || undefined
+      }
+
+      console.log('Updating salary data:', salaryData)
+
+      // Make the API call
+      const response = await fetch(`/api/finance/staff-salaries/${editSalaryForm.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(salaryData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update salary record')
+      }
+
+      const result = await response.json()
+      console.log('Salary record updated:', result)
+      
+      // Reset form and close dialog
+      resetEditSalaryForm()
+      setShowEditSalaryDialog(false)
+      setSalaryToEdit(null)
+      
+      // Refresh the salary data
+      await refetch()
+      
+      // Show success message
+      alert('Salary record updated successfully!')
+      
+    } catch (error) {
+      console.error('Error updating salary:', error)
+      alert(`Error updating salary: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsEditing(false)
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!salaryToDelete) return
+    
+    setIsDeleting(true)
+    try {
+      console.log('Deleting salary record:', salaryToDelete)
+
+      // Make the API call to delete
+      const response = await fetch(`/api/finance/staff-salaries/${salaryToDelete.salaryId || salaryToDelete.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete salary record')
+      }
+
+      console.log('Salary record deleted successfully')
+      
+      // Reset states and close dialog
+      setShowDeleteConfirmDialog(false)
+      setSalaryToDelete(null)
+      
+      // Refresh the salary data
+      await refetch()
+      
+      // Show success message
+      alert('Salary record deleted successfully!')
+      
+    } catch (error) {
+      console.error('Error deleting salary:', error)
+      alert(`Error deleting salary: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   const handleAddSalarySubmit = async () => {
     setIsSavingSalary(true)
     try {
       // Validate required fields
       if (!addSalaryForm.staffId || !addSalaryForm.payPeriod || !addSalaryForm.baseSalary) {
-        toast.error('Please fill in all required fields')
+        alert('Please fill in all required fields')
         return
       }
 
       if (!school?.id) {
-        toast.error('School information not available')
+        alert('School information not available')
         return
       }
 
@@ -253,12 +433,12 @@ export function StaffSalaryManagement() {
       const deductions = parseFloat(addSalaryForm.deductions) || 0
 
       if (baseSalary <= 0) {
-        toast.error('Base salary must be greater than 0')
+        alert('Base salary must be greater than 0')
         return
       }
 
       if (deductions < 0 || allowances < 0) {
-        toast.error('Allowances and deductions cannot be negative')
+        alert('Allowances and deductions cannot be negative')
         return
       }
 
@@ -270,7 +450,7 @@ export function StaffSalaryManagement() {
         allowances,
         deductions,
         payPeriod: addSalaryForm.payPeriod,
-        academicYear: addSalaryForm.payPeriod.split('-')[0], // Extract year from pay period
+        academicYear: addSalaryForm.payPeriod.split('-')[0],
         paymentMethod: addSalaryForm.paymentMethod || 'bank_transfer',
         accountNumber: addSalaryForm.accountNumber || undefined,
         notes: addSalaryForm.notes || undefined
@@ -302,12 +482,11 @@ export function StaffSalaryManagement() {
       // Refresh the salary data
       await refetch()
       
-      // Show success message (you can replace this with a toast notification)
+      // Show success message
       toast.success('Salary record saved successfully!')
       
     } catch (error) {
       console.error('Error saving salary:', error)
-      // Show error message (you can replace this with a toast notification)
       toast.error(`Error saving salary: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsSavingSalary(false)
@@ -819,6 +998,7 @@ export function StaffSalaryManagement() {
                                 size="icon"
                                 variant="ghost"
                                 onClick={() => setSelectedEmployee(staff)}
+                                title="View Details"
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
@@ -880,11 +1060,22 @@ export function StaffSalaryManagement() {
                               )}
                             </DialogContent>
                           </Dialog>
-                          <Button size="icon" variant="ghost">
+                          <Button 
+                            size="icon" 
+                            variant="ghost"
+                            onClick={() => handleEditSalary(staff)}
+                            title="Edit Salary"
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost">
-                            <DollarSign className="h-4 w-4" />
+                          <Button 
+                            size="icon" 
+                            variant="ghost"
+                            onClick={() => handleDeleteSalary(staff)}
+                            title="Delete Salary"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
