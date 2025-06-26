@@ -1,3 +1,4 @@
+import { getSession } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FinanceOverview } from "@/components/dashboard/finance/components/finance-overview"
 import { StudentFeesManagement } from "@/components/dashboard/finance/components/student-fees-management"
@@ -5,8 +6,13 @@ import { StaffSalaryManagement } from "@/components/dashboard/finance/components
 import { ExpenseManagement } from "@/components/dashboard/finance/components/expense-management"
 import { FinancialReports } from "@/components/dashboard/finance/components/financial-reports"
 import { FeeStructureManagement } from "@/components/dashboard/finance/components/fee-structure-management"
+import { redirect } from "next/navigation";
 
-export default function FinancePage() {
+export default async function FinancePage() {
+  const session = await getSession();
+  if(!session) (
+    redirect("/login")
+  )
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -36,7 +42,7 @@ export default function FinancePage() {
         </TabsContent>
 
         <TabsContent value="expenses" className="space-y-6">
-          <ExpenseManagement />
+          <ExpenseManagement schoolId={session?.user.schoolId} />
         </TabsContent>
 
         <TabsContent value="fee-structure" className="space-y-6">

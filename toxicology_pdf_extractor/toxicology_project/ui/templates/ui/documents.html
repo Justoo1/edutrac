@@ -1,0 +1,396 @@
+{% extends 'base.html' %}
+
+{% block title %}My Documents - Toxicology PDF Extractor{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h4 class="mb-0">
+                            <i class="fas fa-folder-open me-2"></i>My Documents
+                        </h4>
+                        <p class="text-muted mb-0 mt-1">
+                            Manage your uploaded toxicology PDF documents
+                        </p>
+                    </div>
+                    <div class="col-auto">
+                        <a href="{% url 'ui:upload' %}" class="btn btn-primary">
+                            <i class="fas fa-upload me-2"></i>Upload New PDF
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Search and Filter Controls -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" class="form-control table-search" 
+                                   placeholder="Search documents..." 
+                                   value="{{ search_query }}"
+                                   onkeyup="filterDocuments(this.value)">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="status-filter" onchange="filterByStatus(this.value)">
+                            <option value="">All Status</option>
+                            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                            <option value="processing" {% if status_filter == 'processing' %}selected{% endif %}>Processing</option>
+                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Completed</option>
+                            <option value="error" {% if status_filter == 'error' %}selected{% endif %}>Error</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 text-end">
+                        <span class="text-muted">
+                            <i class="fas fa-file-alt me-1"></i>
+                            {{ total_count }} document{{ total_count|pluralize }}
+                        </span>
+                    </div>
+                </div>
+
+                {% if documents %}
+                    <!-- Documents Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover data-table" data-realtime="true">
+                            <thead class="table-light">
+                                <tr>
+                                    <th data-sortable>Document</th>
+                                    <th data-sortable>Status</th>
+                                    <th data-sortable>Domains</th>
+                                    <th data-sortable>Size</th>
+                                    <th data-sortable>Uploaded</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for document in documents %}
+                                <tr data-status-id="{{ document.id }}">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-file-pdf text-danger me-3 fa-lg"></i>
+                                            <div>
+                                                <div class="fw-bold">
+                                                    <a href="{% url 'ui:document_detail' document.id %}" 
+                                                       class="text-decoration-none">
+                                                        {{ document.filename|truncatechars:50 }}
+                                                    </a>
+                                                </div>
+                                                {% if document.study_title %}
+                                                    <small class="text-muted d-block">
+                                                        <i class="fas fa-flask me-1"></i>{{ document.study_title }}
+                                                    </small>
+                                                {% endif %}
+                                                {% if document.species %}
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-paw me-1"></i>{{ document.species }}
+                                                    </small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="status-container">
+                                            {% if document.extraction_task %}
+                                                {% if document.extraction_task.status == 'completed' %}
+                                                    <span class="status-badge status-completed">
+                                                        <i class="fas fa-check-circle me-1"></i>Completed
+                                                    </span>
+                                                {% elif document.extraction_task.status == 'processing' %}
+                                                    <span class="status-badge status-processing">
+                                                        <i class="fas fa-spinner fa-spin me-1"></i>Processing
+                                                    </span>
+                                                    <div class="progress mt-1" style="height: 4px;">
+                                                        <div class="progress-bar" role="progressbar" 
+                                                             style="width: {{ document.extraction_task.progress }}%"
+                                                             aria-valuenow="{{ document.extraction_task.progress }}" 
+                                                             aria-valuemin="0" aria-valuemax="100">
+                                                        </div>
+                                                    </div>
+                                                {% elif document.extraction_task.status == 'error' %}
+                                                    <span class="status-badge status-error" 
+                                                          title="{{ document.extraction_task.error_message }}">
+                                                        <i class="fas fa-exclamation-triangle me-1"></i>Error
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">
+                                                        {{ document.extraction_task.get_status_display }}
+                                                    </span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="badge bg-light text-dark">
+                                                    <i class="fas fa-clock me-1"></i>Pending
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if document.extraction_task and document.extraction_task.domains_detected %}
+                                            <div class="d-flex flex-wrap gap-1">
+                                                {% for domain in document.extraction_task.domains_detected %}
+                                                    <span class="badge bg-primary">{{ domain }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="text-muted">{{ document.file_size|filesizeformat }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="text-muted" title="{{ document.uploaded_at }}">
+                                            {{ document.uploaded_at|timesince }} ago
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="{% url 'ui:document_detail' document.id %}" 
+                                               class="btn btn-outline-primary btn-sm" 
+                                               title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            
+                                            {% if not document.extraction_task or document.extraction_task.status != 'processing' %}
+                                                <button type="button" 
+                                                        class="btn btn-outline-success btn-sm" 
+                                                        title="Process Document"
+                                                        onclick="processDocument({{ document.id }})">
+                                                    <i class="fas fa-play"></i>
+                                                </button>
+                                            {% endif %}
+                                            
+                                            {% if document.extraction_task and document.extraction_task.status == 'completed' %}
+                                                <button type="button" 
+                                                        class="btn btn-outline-info btn-sm" 
+                                                        title="Generate Submission"
+                                                        onclick="generateSubmission({{ document.id }})">
+                                                    <i class="fas fa-file-export"></i>
+                                                </button>
+                                            {% endif %}
+                                            
+                                            <button type="button" 
+                                                    class="btn btn-outline-danger btn-sm" 
+                                                    title="Delete Document"
+                                                    onclick="deleteDocument({{ document.id }}, '{{ document.filename|escapejs }}')">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if documents.has_other_pages %}
+                        <nav aria-label="Documents pagination" class="mt-4">
+                            <ul class="pagination justify-content-center">
+                                {% if documents.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ documents.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                {% for num in documents.paginator.page_range %}
+                                    {% if documents.number == num %}
+                                        <li class="page-item active">
+                                            <span class="page-link">{{ num }}</span>
+                                        </li>
+                                    {% elif num > documents.number|add:'-3' and num < documents.number|add:'3' %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ num }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                                {{ num }}
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if documents.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ documents.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    {% endif %}
+
+                {% else %}
+                    <!-- Empty State -->
+                    <div class="text-center py-5">
+                        {% if search_query or status_filter %}
+                            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No documents found</h5>
+                            <p class="text-muted">Try adjusting your search or filter criteria</p>
+                            <a href="{% url 'ui:documents' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Clear Filters
+                            </a>
+                        {% else %}
+                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No documents uploaded yet</h5>
+                            <p class="text-muted">Upload your first toxicology PDF to get started</p>
+                            <a href="{% url 'ui:upload' %}" class="btn btn-primary">
+                                <i class="fas fa-upload me-2"></i>Upload PDF
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Actions Modal -->
+<div class="modal fade" id="bulkActionsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Bulk Actions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Select an action to perform on the selected documents:</p>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-success" onclick="bulkProcess()">
+                        <i class="fas fa-play me-2"></i>Process Selected
+                    </button>
+                    <button type="button" class="btn btn-info" onclick="bulkGenerateSubmissions()">
+                        <i class="fas fa-file-export me-2"></i>Generate Submissions
+                    </button>
+                    <button type="button" class="btn btn-danger" onclick="bulkDelete()">
+                        <i class="fas fa-trash me-2"></i>Delete Selected
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Document management functions
+function processDocument(documentId) {
+    if (!confirm('Start processing this document?')) return;
+    
+    fetch(`/document/${documentId}/process/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            ToxicologyApp.showAlert('success', data.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            ToxicologyApp.showAlert('danger', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Process error:', error);
+        ToxicologyApp.showAlert('danger', 'Failed to start processing');
+    });
+}
+
+function generateSubmission(documentId) {
+    if (!confirm('Generate submission files for this document?')) return;
+    
+    fetch(`/document/${documentId}/generate/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            ToxicologyApp.showAlert('success', data.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            ToxicologyApp.showAlert('danger', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Generation error:', error);
+        ToxicologyApp.showAlert('danger', 'Failed to generate submission');
+    });
+}
+
+function deleteDocument(documentId, filename) {
+    if (!confirm(`Are you sure you want to delete "${filename}"? This action cannot be undone.`)) return;
+    
+    fetch(`/document/${documentId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            ToxicologyApp.showAlert('success', data.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            ToxicologyApp.showAlert('danger', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        ToxicologyApp.showAlert('danger', 'Failed to delete document');
+    });
+}
+
+// Filter functions
+function filterDocuments(searchTerm) {
+    const url = new URL(window.location);
+    if (searchTerm) {
+        url.searchParams.set('search', searchTerm);
+    } else {
+        url.searchParams.delete('search');
+    }
+    url.searchParams.delete('page');
+    
+    // Debounce the search
+    clearTimeout(window.searchTimeout);
+    window.searchTimeout = setTimeout(() => {
+        window.location.href = url.toString();
+    }, 500);
+}
+
+function filterByStatus(status) {
+    const url = new URL(window.location);
+    if (status) {
+        url.searchParams.set('status', status);
+    } else {
+        url.searchParams.delete('status');
+    }
+    url.searchParams.delete('page');
+    window.location.href = url.toString();
+}
+
+// Bulk actions (placeholder functions)
+function bulkProcess() {
+    ToxicologyApp.showAlert('info', 'Bulk processing feature coming soon');
+}
+
+function bulkGenerateSubmissions() {
+    ToxicologyApp.showAlert('info', 'Bulk submission generation feature coming soon');
+}
+
+function bulkDelete() {
+    ToxicologyApp.showAlert('info', 'Bulk delete feature coming soon');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload PDF - Toxicology PDF Extractor{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-upload me-2"></i>Upload Toxicology PDF Document
+                </h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">
+                    Upload your toxicology study PDF document for automated data extraction. 
+                    The system supports complex PDFs with tables, text, and images following SENDIG 3.1 standards.
+                </p>
+
+                <!-- Upload Form -->
+                <form id="upload-form" method="post" enctype="multipart/form-data" action="{% url 'ui:upload' %}">
+                    {% csrf_token %}
+                    
+                    <!-- Drag and Drop Area -->
+                    <div id="upload-area" class="upload-area mb-4">
+                        <div class="upload-icon">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <h5 class="mb-2">Drag and drop your PDF here</h5>
+                        <p class="text-muted mb-3">or click to browse files</p>
+                        <input type="file" id="file-input" name="pdf_file" accept=".pdf" style="display: none;">
+                        <div class="upload-requirements">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Supported: PDF files up to 100MB
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- File Information -->
+                    <div id="file-info" class="alert alert-info" style="display: none;">
+                        <!-- File details will be populated by JavaScript -->
+                    </div>
+
+                    <!-- Processing Options -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="auto-process" name="auto_process" checked>
+                                <label class="form-check-label" for="auto-process">
+                                    <strong>Auto-process after upload</strong>
+                                    <br><small class="text-muted">Start extraction immediately</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="email-notification" name="email_notification" checked>
+                                <label class="form-check-label" for="email-notification">
+                                    <strong>Email notification</strong>
+                                    <br><small class="text-muted">Notify when processing is complete</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Study Information (Optional) -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-flask me-1"></i>Study Information (Optional)
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="study-title" class="form-label">Study Title</label>
+                                    <input type="text" class="form-control" id="study-title" name="study_title" 
+                                           placeholder="Enter study title">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="study-phase" class="form-label">Study Phase</label>
+                                    <select class="form-select" id="study-phase" name="study_phase">
+                                        <option value="">Select study phase</option>
+                                        <option value="SCREENING">Screening</option>
+                                        <option value="TREATMENT">Treatment</option>
+                                        <option value="RECOVERY">Recovery</option>
+                                        <option value="TERMINAL">Terminal</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="species" class="form-label">Species</label>
+                                    <input type="text" class="form-control" id="species" name="species" 
+                                           placeholder="e.g., Rattus norvegicus">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="sponsor" class="form-label">Sponsor</label>
+                                    <input type="text" class="form-control" id="sponsor" name="sponsor" 
+                                           placeholder="Study sponsor organization">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <textarea class="form-control" id="description" name="description" rows="3" 
+                                          placeholder="Brief description of the study"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="d-grid">
+                        <button type="submit" id="submit-btn" class="btn btn-primary btn-lg" disabled>
+                            <i class="fas fa-upload me-2"></i>Process PDF
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Progress Indicator -->
+                <div id="progress-container" class="mt-4" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">Processing...</span>
+                        <span class="text-muted">
+                            <i class="fas fa-spinner fa-spin me-1"></i>
+                            Please wait
+                        </span>
+                    </div>
+                    <div class="progress">
+                        <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-question-circle me-2"></i>Supported Document Types
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">
+                            <i class="fas fa-check-circle me-1"></i>Supported Formats
+                        </h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-dot-circle text-success me-2"></i>PDF documents (.pdf)</li>
+                            <li><i class="fas fa-dot-circle text-success me-2"></i>Text-based PDFs</li>
+                            <li><i class="fas fa-dot-circle text-success me-2"></i>Scanned PDFs with OCR</li>
+                            <li><i class="fas fa-dot-circle text-success me-2"></i>Mixed content (tables, text, images)</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-primary">
+                            <i class="fas fa-database me-1"></i>Extractable Data
+                        </h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-dot-circle text-info me-2"></i>Demographics (DM)</li>
+                            <li><i class="fas fa-dot-circle text-info me-2"></i>Clinical Observations (CL)</li>
+                            <li><i class="fas fa-dot-circle text-info me-2"></i>Food Consumption (FC)</li>
+                            <li><i class="fas fa-dot-circle text-info me-2"></i>Body Weight (BW)</li>
+                            <li><i class="fas fa-dot-circle text-info me-2"></i>Macro/Microscopic Findings</li>
+                            <li><i class="fas fa-dot-circle text-info me-2"></i>Organ Measurements (OM)</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-lightbulb me-2"></i>
+                    <strong>Tip:</strong> For best results, ensure your PDF contains clear tables and well-structured text. 
+                    The AI will automatically detect relevant sections and extract data according to SENDIG 3.1 standards.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Processing Guidelines Modal -->
+<div class="modal fade" id="guidelinesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-book me-2"></i>Processing Guidelines
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <h6>What happens during processing?</h6>
+                <ol>
+                    <li><strong>PDF Analysis:</strong> The system scans the entire document to identify structure and content</li>
+                    <li><strong>Domain Detection:</strong> AI identifies which SENDIG domains are present in the document</li>
+                    <li><strong>Data Extraction:</strong> Relevant data is extracted using advanced OCR and AI techniques</li>
+                    <li><strong>Validation:</strong> Extracted data is validated against SENDIG 3.1 standards</li>
+                    <li><strong>Report Generation:</strong> A detailed extraction report is created</li>
+                </ol>
+                
+                <h6 class="mt-4">Processing Time</h6>
+                <ul>
+                    <li>Small documents (&lt;10 pages): 2-5 minutes</li>
+                    <li>Medium documents (10-50 pages): 5-15 minutes</li>
+                    <li>Large documents (&gt;50 pages): 15-30 minutes</li>
+                </ul>
+                
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Processing time may vary based on document complexity and current system load.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Show processing guidelines modal on first visit
+document.addEventListener('DOMContentLoaded', function() {
+    if (!localStorage.getItem('guidelines_shown')) {
+        // Uncomment to show modal on first visit
+        // var modal = new bootstrap.Modal(document.getElementById('guidelinesModal'));
+        // modal.show();
+        // localStorage.setItem('guidelines_shown', 'true');
+    }
+});
+
+// Add click handler for guidelines link
+function showGuidelines() {
+    var modal = new bootstrap.Modal(document.getElementById('guidelinesModal'));
+    modal.show();
+}
+</script>
+{% endblock %}

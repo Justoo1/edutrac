@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
 
     // Get pending salaries for the period
     const result = await getPendingSalariesForPeriod(schoolId, payPeriod);
+    console.log('Pending salaries for period:', result);
 
     return NextResponse.json(result);
 

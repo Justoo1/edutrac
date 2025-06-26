@@ -58,10 +58,10 @@ export interface ProcessedStaffData {
   deductions: number
   netSalary: number
   paymentStatus: string
-  lastPayment: string | null
+  lastPayment: string | Date | null
   paymentMethod: string
   accountNumber: string
-  joinDate: string
+  joinDate: string | Date
   employeeType: string
 }
 

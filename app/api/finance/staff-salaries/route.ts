@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStaffSalaries, processSalaryPayment, createSalaryRecord, processPayrollPayments, getPendingSalariesForPeriod } from "@/lib/finance/queries";
+import { getStaffSalaries, processSalaryPayment, createSalaryRecord, processPayrollPayments, getPendingSalariesForPeriod, debugPayPeriod } from "@/lib/finance/queries";
 import { getServerSession } from "next-auth";
 
 export async function GET(request: NextRequest) {
@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
     }
 
     const salaries = await getStaffSalaries(schoolId, payPeriod || undefined);
+    const result = await debugPayPeriod(schoolId, payPeriod || '');
+    console.log({result});
     return NextResponse.json(salaries);
 
   } catch (error) {

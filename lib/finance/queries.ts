@@ -1,3 +1,4 @@
+import { PayrollHistory, ProcessedStaffData } from "@/hooks/finance/useStaffSalaries";
 import db from "@/lib/db";
 import { 
   students, 
@@ -13,7 +14,7 @@ import {
   financialTransactions as financialTransactionsTable,
   financialTransactions
 } from "@/lib/schema";
-import { eq, and, desc, asc, sql, between, sum, count } from "drizzle-orm";
+import { eq, and, desc, asc, sql, between, sum, count, inArray } from "drizzle-orm";
 
 // Student Fees Functions
 export async function getStudentsWithFees(schoolId: string) {
@@ -250,10 +251,28 @@ export async function recordFeePayment(paymentData: {
 // Staff Salary Functions
 export async function getStaffSalaries(schoolId: string, payPeriod?: string) {
   try {
+    console.log({payPeriod, schoolId});
+    
     const baseCondition = eq(staffSalaries.schoolId, schoolId);
     const whereCondition = payPeriod 
       ? and(baseCondition, eq(staffSalaries.payPeriod, payPeriod))
       : baseCondition;
+
+    // Debug: Test the exact join condition
+    if (payPeriod) {
+      const joinTest = await db
+        .select({
+          salaryId: staffSalaries.id,
+          staffId: staffSalaries.staffId,
+          staffExists: staff.id,
+        })
+        .from(staffSalaries)
+        .leftJoin(staff, eq(staff.id, staffSalaries.staffId))  // Use LEFT JOIN for debugging
+        .where(whereCondition);
+      
+      console.log('Join test results:', joinTest);
+      console.log('Records where staff is null:', joinTest.filter(r => r.staffExists === null));
+    }
 
     const query = db
       .select({
@@ -265,9 +284,61 @@ export async function getStaffSalaries(schoolId: string, payPeriod?: string) {
       .where(whereCondition)
       .orderBy(desc(staffSalaries.paymentDate));
 
-    return await query;
+    const result = await query;
+    console.log('Final joined result count:', result.length);
+    
+    return result;
   } catch (error) {
     console.error("Error fetching staff salaries:", error);
+    throw error;
+  }
+}
+
+export async function debugPayPeriod(schoolId: string, payPeriod: string) {
+  try {
+    // Test 1: Check all payPeriods for this school
+    const allPayPeriods = await db
+      .select({ 
+        payPeriod: staffSalaries.payPeriod,
+        count: sql<number>`count(*)`.as('count')
+      })
+      .from(staffSalaries)
+      .where(eq(staffSalaries.schoolId, schoolId))
+      .groupBy(staffSalaries.payPeriod)
+      .orderBy(staffSalaries.payPeriod);
+    
+    console.log('All payPeriods for school:', allPayPeriods);
+    
+    // Test 2: Simple select without join
+    const simpleTest = await db
+      .select({
+        id: staffSalaries.id,
+        payPeriod: staffSalaries.payPeriod,
+        staffId: staffSalaries.staffId
+      })
+      .from(staffSalaries)
+      .where(and(
+        eq(staffSalaries.schoolId, schoolId),
+        eq(staffSalaries.payPeriod, payPeriod)
+      ));
+    
+    console.log('Simple test count:', simpleTest.length);
+    console.log('Sample records:', simpleTest.slice(0, 2));
+    
+    // Test 3: Check if staff records exist for these staffIds
+    if (simpleTest.length > 0) {
+      const staffIds = simpleTest.map(s => s.staffId);
+      const staffRecords = await db
+        .select({ id: staff.id })
+        .from(staff)
+        .where(inArray(staff.id, staffIds));
+      
+      console.log('Matching staff records:', staffRecords.length);
+    }
+    
+    return simpleTest;
+  } catch (error) {
+    console.error('Debug error:', error);
     throw error;
   }
 }
@@ -571,6 +642,90 @@ export async function processSalaryPayment(salaryData: {
     return result;
   } catch (error) {
     console.error("Error processing salary payment:", error);
+    throw error;
+  }
+}
+
+export async function getSalariesForPeriod(schoolId: string, payPeriod: string) {
+  try {
+    const salaries = await db
+      .select({
+        salary: staffSalaries,
+        staff: staff,
+      })
+      .from(staffSalaries)
+      .innerJoin(staff, eq(staff.id, staffSalaries.staffId))
+      .where(
+        and(
+          eq(staffSalaries.schoolId, schoolId),
+          eq(staffSalaries.payPeriod, payPeriod),
+          eq(staffSalaries.status, 'paid')
+        )
+      )
+      .orderBy(staff.name);
+
+    const processedStaff: ProcessedStaffData[] = salaries!.map((item) => {
+      const { salary, staff } = item
+      
+      // Extract contact info
+      const contactInfo = staff.contactInfo as any || {}
+      const phone = contactInfo?.phone || contactInfo?.primaryPhone || '+233 XX XXX XXXX'
+      
+      // Generate avatar initials
+      const nameInitials = staff.name?.split(' ').map(n => n[0]).join('') || 'ST'
+      
+      return {
+        staffId: staff.id,
+        id: salary.id,
+        name: staff.name || 'Unknown Staff',
+        position: staff.position || 'Staff Member',
+        department: staff.department || 'General',
+        avatar: `/placeholder.svg`, // You can customize this based on your needs
+        phone,
+        email: staff.email || contactInfo?.email || 'No email',
+        baseSalary: salary.baseSalary,
+        allowances: salary.allowances || 0,
+        deductions: salary.deductions || 0,
+        netSalary: salary.netSalary,
+        paymentStatus: salary.status || 'pending',
+        lastPayment: salary.paymentDate,
+        paymentMethod: salary.paymentMethod || 'Not specified',
+        accountNumber: salary.accountNumber || 'Not provided',
+        joinDate: staff.joinedDate || staff.createdAt,
+        employeeType: staff.role === 'teacher' ? 'full-time' : staff.role || 'full-time'
+      }
+    })
+  
+    // Calculate summary statistics
+    const totalStaff = processedStaff.length
+    const totalSalaryBudget = processedStaff.reduce((sum, staff) => sum + staff.netSalary, 0)
+    const paidSalaries = processedStaff
+      .filter(s => s.paymentStatus === 'paid')
+      .reduce((sum, staff) => sum + staff.netSalary, 0)
+    const pendingSalaries = processedStaff
+      .filter(s => s.paymentStatus === 'pending')
+      .reduce((sum, staff) => sum + staff.netSalary, 0)
+  
+    // Generate payroll history (mock data for now - you can enhance this later)
+    const payrollHistory: PayrollHistory[] = [
+      { month: "January 2024", totalPaid: totalSalaryBudget, staffCount: totalStaff, status: "completed" },
+      { month: "December 2023", totalPaid: totalSalaryBudget * 0.98, staffCount: totalStaff, status: "completed" },
+      { month: "November 2023", totalPaid: totalSalaryBudget, staffCount: totalStaff, status: "completed" },
+      { month: "October 2023", totalPaid: totalSalaryBudget * 0.95, staffCount: totalStaff - 1, status: "completed" },
+    ]
+  
+    return {
+      staffData: processedStaff,
+      payrollHistory,
+      summary: {
+        totalStaff,
+        totalSalaryBudget,
+        paidSalaries,
+        pendingSalaries
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching pending salaries:", error);
     throw error;
   }
 }
@@ -1037,13 +1192,102 @@ export async function getStudentFeesWithStatus(studentId: string, academicYear?:
         eq(feePayments.feeTypeId, feeTypes.id),
         eq(feePayments.studentId, studentId)
       ))
-      .where(and(...conditions))
-      .groupBy(feeTypes.id)
-      .orderBy(asc(feeTypes.name));
-
     return feesWithStatus;
   } catch (error) {
     console.error("Error fetching student fees with status:", error);
+    throw error;
+  }
+}
+
+// Delete expense record
+export async function deleteExpense(expenseId: string, deletedBy: string) {
+  try {
+    console.log({ expenseId, deletedBy });
+    const result = await db.transaction(async (tx) => {
+      // Get the expense record first
+      const expenseRecord = await tx
+        .select()
+        .from(expenses)
+        .where(eq(expenses.id, expenseId))
+        .limit(1);
+
+      if (expenseRecord.length === 0) {
+        throw new Error('Expense record not found');
+      }
+
+      const expense = expenseRecord[0];
+
+      // Delete related financial transactions if expense was approved/paid
+      if (expense.status === 'approved' || expense.status === 'paid') {
+        await tx
+          .delete(financialTransactionsTable)
+          .where(
+            and(
+              eq(financialTransactionsTable.referenceType, 'expense'),
+              eq(financialTransactionsTable.referenceId, expenseId)
+            )
+          );
+      }
+
+      // Delete the expense record
+      const deletedExpense = await tx
+        .delete(expenses)
+        .where(eq(expenses.id, expenseId))
+        .returning();
+
+      return deletedExpense[0];
+    });
+
+    return result;
+  } catch (error) {
+    console.error("Error deleting expense:", error);
+    throw error;
+  }
+}
+
+// Update expense record
+export async function updateExpense(expenseId: string, updateData: {
+  description?: string;
+  category?: string;
+  vendor?: string;
+  department?: string;
+  amount?: number;
+  expenseDate?: Date;
+  paymentMethod?: string;
+  paymentReference?: string;
+  notes?: string;
+  updatedBy: string;
+}) {
+  try {
+    const updateValues: any = {
+      ...updateData,
+      updatedAt: new Date(),
+    };
+
+    // Handle expenseDate conversion if it exists
+    if (updateValues.expenseDate) {
+      // Convert string to Date if necessary
+      if (typeof updateValues.expenseDate === 'string') {
+        updateValues.expenseDate = new Date(updateValues.expenseDate);
+      }
+    }
+
+    // Remove updatedBy from the update values as it's not a column
+    delete updateValues.updatedBy;
+
+    const result = await db
+      .update(expenses)
+      .set(updateValues)
+      .where(eq(expenses.id, expenseId))
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error('Expense record not found');
+    }
+
+    return result[0];
+  } catch (error) {
+    console.error("Error updating expense:", error);
     throw error;
   }
 }

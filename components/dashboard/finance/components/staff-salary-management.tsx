@@ -15,7 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Search, Filter, Download, Plus, Edit, Eye, Send, Calendar, Users, DollarSign, CheckCircle2, Clock, AlertTriangle, Calculator, Trash2 } from "lucide-react"
+import { Search, Filter, Download, Plus, Edit, Eye, Send, Calendar, Users, DollarSign, CheckCircle2, Clock, AlertTriangle, Calculator, Trash2, FileText, FileSpreadsheet } from "lucide-react"
+import { exportPayrollToPDF, exportPayrollToCSV, exportPayrollToExcel, PayrollExportData } from "@/lib/payroll-export"
 import { toast } from "sonner"
 
 // Type definitions for payroll data
@@ -66,6 +67,10 @@ export function StaffSalaryManagement() {
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
   const [selectedSalaryRecord, setSelectedSalaryRecord] = useState<any>(null)
   const [isDeletingSalary, setIsDeletingSalary] = useState(false)
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [exportFormat, setExportFormat] = useState('pdf')
+  const [exportPayPeriod, setExportPayPeriod] = useState('')
+  const [isExporting, setIsExporting] = useState(false)
   const [isEditingSalary, setIsEditingSalary] = useState(false)
   const [selectedPayPeriod, setSelectedPayPeriod] = useState('')
   const [payrollDetails, setPayrollDetails] = useState<PayrollDetails | null>(null)
@@ -495,6 +500,114 @@ export function StaffSalaryManagement() {
     }
   }
 
+  const handleExportPayroll = async () => {
+  if (!school) {
+    showToast('School information not available', 'error')
+    return
+  }
+
+  setIsExporting(true)
+  try {
+    let exportStaffData = filteredStaff;
+    let exportSummary = summary;
+    
+    // If a specific pay period is selected, fetch data for that period from API
+    if (exportPayPeriod) {
+      const [year, month] = exportPayPeriod.split('-');
+      const payPeriodFormatted = `${year}-${month}`;
+      
+      console.log('Export pay period:', exportPayPeriod);
+      console.log('Formatted pay period:', payPeriodFormatted);
+      // fetch(`/api/finance/staff-salaries/process-payroll?schoolId=${school.id}&payPeriod=${payPeriod}`)
+      try {
+        // Try to fetch from API (you might need to adjust this URL based on your actual API)
+        const apiUrl = `/api/finance/staff-salaries/process-payroll/paid?schoolId=${school.id}&payPeriod=${exportPayPeriod}`;
+        console.log('API URL:', apiUrl);
+        
+        const response = await fetch(apiUrl);
+        console.log('API response:', response);
+        
+        if (response.ok) {
+          const periodData = await response.json();
+          console.log('Period data received from API:', periodData);
+          
+          if (periodData.staffData && periodData.summary) {
+            exportStaffData = periodData.staffData;
+            exportSummary = periodData.summary || summary;
+            console.log('Using API data:', exportStaffData.length, 'staff records');
+          } else {
+            console.log('No staff data in API response');
+            showToast(`No salary data found for ${payPeriodFormatted} status code: ${response.status}`, 'error');
+            return;
+          }
+        } else {
+          // If API doesn't work, just use current data but warn user
+          console.log('API call failed, using current data');
+          showToast(`Using current data (API unavailable for ${payPeriodFormatted})`, 'error');
+          return;
+        }
+      } catch (apiError) {
+        console.error('API Error:', apiError);
+        // If API fails, use current data but warn user
+        showToast(`Using current data (unable to fetch ${payPeriodFormatted} specific data)`, 'error');
+        return ;
+      }
+    }
+    
+    // Filter by selected staff if any
+    if (selectedStaff.length > 0) {
+      exportStaffData = exportStaffData.filter(staff => selectedStaff.includes(staff.id));
+      console.log('Filtered by selected staff:', exportStaffData.length, 'records');
+    }
+    
+    // Check if we have data to export
+    if (exportStaffData.length === 0) {
+      showToast('No data available for the selected criteria', 'error');
+      return;
+    }
+
+    console.log('Final export data:', exportStaffData, 'staff records');
+    console.log('Final export data:', exportSummary, 'Summary');
+
+    // Prepare export data
+    const exportData: PayrollExportData = {
+      staffData: exportStaffData,
+      school,
+      summary: exportSummary,
+      payPeriod: exportPayPeriod || undefined,
+      selectedStaff: selectedStaff.length > 0 ? selectedStaff : undefined
+    }
+
+    // Export based on selected format
+    switch (exportFormat) {
+      case 'pdf':
+        exportPayrollToPDF(exportData)
+        break
+      case 'csv':
+        exportPayrollToCSV(exportData)
+        break
+      case 'excel':
+        await exportPayrollToExcel(exportData)
+        break
+      default:
+        throw new Error('Invalid export format')
+    }
+
+    setShowExportDialog(false)
+    setExportFormat('pdf')
+    setExportPayPeriod('')
+    
+    const periodText = exportPayPeriod ? ` for ${exportPayPeriod}` : '';
+    showToast(`Payroll exported successfully as ${exportFormat.toUpperCase()}${periodText}!`)
+    
+  } catch (error) {
+    console.error('Error exporting payroll:', error)
+    showToast(`Error exporting payroll: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
+  } finally {
+    setIsExporting(false)
+  }
+}
+
   // We'll handle empty data in the main component layout
   if (schoolLoading || loading || staffLoading) {
     return (
@@ -687,10 +800,100 @@ export function StaffSalaryManagement() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Button variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" />
-            Export Payroll
-          </Button>
+          <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                Export Payroll
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Export Payroll Report</DialogTitle>
+                <DialogDescription>
+                  Choose export format and options for your payroll report
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Export Format</Label>
+                  <Select value={exportFormat} onValueChange={setExportFormat}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pdf">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          PDF Report
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="csv">
+                        <div className="flex items-center gap-2">
+                          <FileSpreadsheet className="h-4 w-4" />
+                          CSV File
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="excel">
+                        <div className="flex items-center gap-2">
+                          <FileSpreadsheet className="h-4 w-4" />
+                          Excel File
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Pay Period (Optional)</Label>
+                  <Input
+                    type="month"
+                    value={exportPayPeriod}
+                    onChange={(e) => setExportPayPeriod(e.target.value)}
+                    placeholder="Select pay period"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Leave empty to export current view data, or select a specific month to export salary data for that period only
+                  </p>
+                </div>
+                {selectedStaff.length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> Only {selectedStaff.length} selected staff member(s) will be exported.
+                    </p>
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowExportDialog(false)
+                    setExportFormat('pdf')
+                    setExportPayPeriod('')
+                  }} 
+                  disabled={isExporting}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleExportPayroll} 
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      Export {exportFormat.toUpperCase()}
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Dialog open={showPayrollDialog} onOpenChange={(open) => {
             if (!open) {
               // Reset states when closing
