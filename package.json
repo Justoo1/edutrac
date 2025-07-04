@@ -60,6 +60,7 @@
     "focus-trap-react": "^10.3.1",
     "framer-motion": "^10.18.0",
     "gray-matter": "^4.0.3",
+    "html2canvas": "^1.4.1",
     "js-cookie": "^3.0.5",
     "jsdom": "^26.0.0",
     "jspdf": "^3.0.1",

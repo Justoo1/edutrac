@@ -124,3 +124,13 @@ export const formatDateToPayPeriod = (date: Date) => {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   return `${year}-${month}`
 }
+
+// Currency formatter for Ghana Cedis
+export const formatCurrency = (amount: number): string => {
+  return `GH₵${Math.abs(amount).toLocaleString()}`
+}
+
+export const formatCurrencyWithSign = (amount: number): string => {
+  const sign = amount >= 0 ? '' : '-'
+  return `${sign}${formatCurrency(amount)}`
+}

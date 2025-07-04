@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useSchool } from "@/hooks/useSchool"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,7 +12,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
-import { Search, Filter, Download, Plus, Edit, Eye, Trash, Receipt, ShoppingCart, Zap, Car, Book, Users, AlertTriangle, CheckCircle2, Clock, Loader2 } from "lucide-react"
+import { Search, Filter, Download, Plus, Edit, Eye, Trash, Receipt, ShoppingCart, Zap, Car, Book, Users, AlertTriangle, CheckCircle2, Clock, Loader2, FileText, FileSpreadsheet } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { exportExpenseToPDF, exportExpenseToCSV, exportExpenseToExcel, type ExpenseExportData } from "@/lib/expense-export"
 
 // Types for the expense data based on schema
 interface Expense {
@@ -64,6 +67,7 @@ const expenseCategories = [
 ]
 
 export function ExpenseManagement({ schoolId = "test-school" }: ExpenseManagementProps) {
+  const { school, loading: schoolLoading } = useSchool()
   // State management
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
@@ -73,6 +77,7 @@ export function ExpenseManagement({ schoolId = "test-school" }: ExpenseManagemen
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedStatus, setSelectedStatus] = useState("all")
+  const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' })
   
   // Dialog states
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
@@ -82,6 +87,16 @@ export function ExpenseManagement({ schoolId = "test-school" }: ExpenseManagemen
   const [expenseToDelete, setExpenseToDelete] = useState<string | null>(null)
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null)
   
+  // Export states
+  const [showExportDialog, setShowExportDialog] = useState(false)
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'csv' | 'excel'>('pdf')
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportDateRange, setExportDateRange] = useState({ startDate: '', endDate: '' })
+  const [selectedExpenses, setSelectedExpenses] = useState<string[]>([])
+  
+  // Placeholder school data - this should come from props or context
+  
+
   // Form state
   const [formData, setFormData] = useState<ExpenseFormData>({
     description: "",
@@ -161,7 +176,7 @@ export function ExpenseManagement({ schoolId = "test-school" }: ExpenseManagemen
 
   // Calculate stats from real data
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.expense.amount, 0)
-  const paidExpenses = expenses.filter(e => e.expense.status === 'paid').reduce((sum, expense) => sum + expense.expense.amount, 0)
+  const paidExpenses = expenses.filter(e => e.expense.status === 'approved').reduce((sum, expense) => sum + expense.expense.amount, 0)
   const pendingExpenses = expenses.filter(e => e.expense.status === 'pending').reduce((sum, expense) => sum + expense.expense.amount, 0)
   const rejectedExpenses = expenses.filter(e => e.expense.status === 'rejected').reduce((sum, expense) => sum + expense.expense.amount, 0)
 
@@ -182,6 +197,25 @@ export function ExpenseManagement({ schoolId = "test-school" }: ExpenseManagemen
   useEffect(() => {
     fetchExpenses()
   }, [fetchExpenses])
+
+  // Handle expense selection for export
+  const handleSelectExpense = (expenseId: string) => {
+    setSelectedExpenses(prev => 
+      prev.includes(expenseId) 
+        ? prev.filter(id => id !== expenseId)
+        : [...prev, expenseId]
+    )
+  }
+
+  // Handle select all expenses
+  const handleSelectAll = (checked: boolean | string) => {
+    const isChecked = checked === true
+    if (isChecked) {
+      setSelectedExpenses(filteredExpenses.map(expense => expense.expense.id))
+    } else {
+      setSelectedExpenses([])
+    }
+  }
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -255,7 +289,6 @@ export function ExpenseManagement({ schoolId = "test-school" }: ExpenseManagemen
       toast.success('Expense approved successfully')
       fetchExpenses()
     } catch (error) {
-
       console.error('Error approving expense:', error)
       toast.error('Failed to approve expense')
     }
@@ -347,6 +380,103 @@ export function ExpenseManagement({ schoolId = "test-school" }: ExpenseManagemen
     }
   }
 
+  // Handle expense export
+  const handleExportExpenses = async () => {
+    if (!school) {
+      toast.error('School information not available')
+      return
+    }
+
+    setIsExporting(true)
+    try {
+      let exportExpenseData = filteredExpenses;
+      
+      // If date range is specified for export, fetch data for that range
+      if (exportDateRange.startDate && exportDateRange.endDate) {
+        try {
+          const params = new URLSearchParams({
+            schoolId,
+            startDate: exportDateRange.startDate,
+            endDate: exportDateRange.endDate
+          })
+          
+          if (selectedCategory !== "all") {
+            params.append("category", selectedCategory)
+          }
+          if (selectedStatus !== "all") {
+            params.append("status", selectedStatus)
+          }
+          
+          const response = await fetch(`/api/finance/expenses?${params}`)
+          if (response.ok) {
+            const dateRangeData = await response.json()
+            exportExpenseData = dateRangeData
+          }
+        } catch (error) {
+          console.error('Error fetching date range data:', error)
+          toast.error('Using current data (unable to fetch date range specific data)')
+        }
+      }
+      
+      // Filter by selected expenses if any
+      if (selectedExpenses.length > 0) {
+        exportExpenseData = exportExpenseData.filter(expense => selectedExpenses.includes(expense.expense.id))
+      }
+      
+      // Check if we have data to export
+      if (exportExpenseData.length === 0) {
+        toast.error('No data available for the selected criteria')
+        return
+      }
+
+      // Prepare export data
+      const exportData: ExpenseExportData = {
+        expenseData: exportExpenseData,
+        school,
+        summary: {
+          totalExpenses,
+          paidExpenses,
+          pendingExpenses,
+          rejectedExpenses
+        },
+        dateRange: exportDateRange.startDate && exportDateRange.endDate ? exportDateRange : undefined,
+        categoryFilter: selectedCategory !== 'all' ? selectedCategory : undefined,
+        statusFilter: selectedStatus !== 'all' ? selectedStatus : undefined,
+        selectedExpenses: selectedExpenses.length > 0 ? selectedExpenses : undefined
+      }
+
+      // Export based on selected format
+      switch (exportFormat) {
+        case 'pdf':
+          exportExpenseToPDF(exportData)
+          break
+        case 'csv':
+          exportExpenseToCSV(exportData)
+          break
+        case 'excel':
+          await exportExpenseToExcel(exportData)
+          break
+        default:
+          throw new Error('Invalid export format')
+      }
+
+      setShowExportDialog(false)
+      setExportFormat('pdf')
+      setExportDateRange({ startDate: '', endDate: '' })
+      
+      const dateText = exportDateRange.startDate && exportDateRange.endDate 
+        ? ` for ${exportDateRange.startDate} to ${exportDateRange.endDate}` 
+        : ''
+      toast.success(`Expense report exported successfully as ${exportFormat.toUpperCase()}${dateText}!`)
+      
+    } catch (error) {
+      console.error('Error exporting expenses:', error)
+      toast.error(`Error exporting expenses: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "paid": return "bg-green-100 text-green-800 border-green-200"
@@ -399,10 +529,109 @@ export function ExpenseManagement({ schoolId = "test-school" }: ExpenseManagemen
           <p className="text-muted-foreground">Track and manage school expenses and payments</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="mr-2 h-4 w-4" />
-            Export Report
-          </Button>
+          <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Download className="mr-2 h-4 w-4" />
+                Export Report
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Export Expense Report</DialogTitle>
+                <DialogDescription>
+                  Choose export format and options for your expense report
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Export Format</Label>
+                  <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as 'pdf' | 'csv' | 'excel')}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pdf">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          PDF Report
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="csv">
+                        <div className="flex items-center gap-2">
+                          <FileSpreadsheet className="h-4 w-4" />
+                          CSV File
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="excel">
+                        <div className="flex items-center gap-2">
+                          <FileSpreadsheet className="h-4 w-4" />
+                          Excel File
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Start Date (Optional)</Label>
+                    <Input
+                      type="date"
+                      value={exportDateRange.startDate}
+                      onChange={(e) => setExportDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>End Date (Optional)</Label>
+                    <Input
+                      type="date"
+                      value={exportDateRange.endDate}
+                      onChange={(e) => setExportDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Leave dates empty to export current view data, or select a date range for specific period data
+                </div>
+                {selectedExpenses.length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> Only {selectedExpenses.length} selected expense(s) will be exported.
+                    </p>
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowExportDialog(false)
+                    setExportFormat('pdf')
+                    setExportDateRange({ startDate: '', endDate: '' })
+                  }} 
+                  disabled={isExporting}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleExportExpenses} 
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="mr-2 h-4 w-4" />
+                      Export {exportFormat.toUpperCase()}
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Dialog open={showAddExpenseDialog} onOpenChange={setShowAddExpenseDialog}>
             <DialogTrigger asChild>
               <Button size="sm">
@@ -609,31 +838,45 @@ export function ExpenseManagement({ schoolId = "test-school" }: ExpenseManagemen
                 className="pl-10"
               />
             </div>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="Utilities">Utilities</SelectItem>
-                <SelectItem value="Supplies">Supplies</SelectItem>
-                <SelectItem value="Maintenance">Maintenance</SelectItem>
-                <SelectItem value="Transport">Transport</SelectItem>
-                <SelectItem value="Educational Materials">Educational Materials</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:w-auto">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="Utilities">Utilities</SelectItem>
+                  <SelectItem value="Supplies">Supplies</SelectItem>
+                  <SelectItem value="Maintenance">Maintenance</SelectItem>
+                  <SelectItem value="Transport">Transport</SelectItem>
+                  <SelectItem value="Educational Materials">Educational Materials</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                placeholder="Start Date"
+                value={dateRange.startDate}
+                onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+              />
+              <Input
+                type="date"
+                placeholder="End Date"
+                value={dateRange.endDate}
+                onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -641,14 +884,32 @@ export function ExpenseManagement({ schoolId = "test-school" }: ExpenseManagemen
       {/* Expenses Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Expenses</CardTitle>
-          <CardDescription>All recorded expenses and their status</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Recent Expenses</CardTitle>
+              <CardDescription>All recorded expenses and their status</CardDescription>
+            </div>
+            {selectedExpenses.length > 0 && (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowExportDialog(true)}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Selected ({selectedExpenses.length})
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">
+                    <Checkbox
+                      checked={selectedExpenses.length === filteredExpenses.length && filteredExpenses.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Vendor</TableHead>
@@ -662,13 +923,19 @@ export function ExpenseManagement({ schoolId = "test-school" }: ExpenseManagemen
               <TableBody>
                 {filteredExpenses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       {expenses.length === 0 ? "No expenses found. Add your first expense to get started." : "No expenses match your current search."}
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredExpenses.map((expense) => (
                     <TableRow key={expense.expense.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedExpenses.includes(expense.expense.id)}
+                          onCheckedChange={() => handleSelectExpense(expense.expense.id)}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div>
                           <div className="font-medium">{expense.expense.description}</div>

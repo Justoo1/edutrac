@@ -30,7 +30,7 @@ export default async function FinancePage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <FinanceOverview />
+          <FinanceOverview schoolId={session?.user.schoolId} />
         </TabsContent>
 
         <TabsContent value="student-fees" className="space-y-6">
@@ -50,7 +50,7 @@ export default async function FinancePage() {
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-6">
-          <FinancialReports />
+          <FinancialReports schoolId={session?.user.schoolId} />
         </TabsContent>
       </Tabs>
     </div>
