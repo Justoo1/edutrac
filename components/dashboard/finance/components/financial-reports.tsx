@@ -177,6 +177,7 @@ export function FinancialReports({ schoolId = "test-school" }: FinancialReportsP
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
+  const [isPrinting, setIsPrinting] = useState(false)
   
   // Dialog and filter states
   const [showGenerateDialog, setShowGenerateDialog] = useState(false)
@@ -444,21 +445,78 @@ export function FinancialReports({ schoolId = "test-school" }: FinancialReportsP
 
   // Enhanced print functionality
   const handlePrint = async () => {
-  const printWindow = window.open('', '_blank')
-  if (!printWindow) {
-    console.error('Could not open print window')
-    return
-  }
-  
   try {
-    // Capture ALL charts
-    const chartData = await captureAllChartsForPrint()
-    console.log(`Charts for print: ${chartData.length} chart(s) captured`)
+    setIsPrinting(true)
     
-    // Generate print content with multiple charts
+    // Show immediate feedback
+    toast.loading('Preparing report for printing...', { id: 'print-loading' })
+    
+    // Start chart capture
+    const chartCapturePromise = captureAllChartsForPrint()
+    
+    // Open print window immediately
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      throw new Error('Could not open print window')
+    }
+    
+    // Show loading screen in print window
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Financial Report</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              text-align: center; 
+              padding: 50px;
+              background: #f8f9fa;
+            }
+            .loading {
+              font-size: 18px;
+              color: #6B7280;
+              margin: 20px 0;
+            }
+            .spinner {
+              border: 4px solid #f3f3f3;
+              border-top: 4px solid #3B82F6;
+              border-radius: 50%;
+              width: 40px;
+              height: 40px;
+              animation: spin 1s linear infinite;
+              margin: 20px auto;
+            }
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="loading">
+            <div class="spinner"></div>
+            <h2>🔄 Generating Financial Report...</h2>
+            <p>Please wait while we capture charts and prepare your report</p>
+            <p><small>This may take a few seconds</small></p>
+          </div>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    
+    // Wait for chart capture to complete
+    const chartData = await chartCapturePromise
+    console.log(`Charts ready: ${chartData.length} chart(s) captured`)
+    
+    // Update progress
+    toast.loading('Generating final report...', { id: 'print-loading' })
+    
+    // Generate the final content with captured charts
     const printContent = generatePrintContentWithMultipleCharts(reportData, chartData)
     
-    // Write to print window
+    // Replace loading content with actual report
+    printWindow.document.open()
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -473,19 +531,29 @@ export function FinancialReports({ schoolId = "test-school" }: FinancialReportsP
         </body>
       </html>
     `)
-    
     printWindow.document.close()
+    
+    // Focus the window
     printWindow.focus()
     
-    // Print after a short delay
+    // Success feedback
+    toast.success('Report ready for printing!', { id: 'print-loading' })
+    
+    // Auto-trigger print dialog after a short delay
     setTimeout(() => {
-      printWindow.print()
-      printWindow.close()
-    }, 250)
+      try {
+        printWindow.print()
+      } catch (printError) {
+        console.warn('Auto-print failed:', printError)
+        // User can still print manually
+      }
+    }, 500)
     
   } catch (error) {
     console.error('Print error:', error)
-    printWindow.close()
+    toast.error('Failed to generate print report', { id: 'print-loading' })
+  } finally {
+    setIsPrinting(false)
   }
 }
   const captureChartForPrint = async (): Promise<string> => {
@@ -1953,9 +2021,23 @@ if (includeCharts === 'yes') {
             </DialogContent>
           </Dialog>
           
-          <Button variant="outline" size="sm" onClick={handlePrint}>
-            <Printer className="mr-2 h-4 w-4" />
-            Print
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handlePrint}
+            disabled={isPrinting}
+          >
+            {isPrinting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Preparing...
+              </>
+            ) : (
+              <>
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+              </>
+            )}
           </Button>
           
           <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
