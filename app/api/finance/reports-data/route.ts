@@ -225,22 +225,31 @@ async function processFinancialDataForReports(
   // Process expense breakdown
   const expenseData = processExpenseBreakdown(groupedData, filters.includeExpenses);
 
-  // Get fee collection data (only if we have students data)
+  // Get fee collection data and student outstanding fees (always fetch for reports)
   let feeCollectionData: any[] = [];
   let studentsData = { outstandingFees: 0, studentsWithOutstanding: 0, totalStudents: 0 };
 
   try {
+    // Always fetch students data for reports (needed for outstanding fees summary)
+    const studentsWithFees = await getStudentsWithFees(schoolId);
+    console.log("Students with fees data:", studentsWithFees.length, "students");
+    
+    // Process fee collection data only if fees are included
     if (filters.includeFees || filters.reportType === "fees") {
-      const studentsWithFees = await getStudentsWithFees(schoolId);
       feeCollectionData = processFeeCollectionData(studentsWithFees);
-      studentsData = {
-        outstandingFees: studentsWithFees.reduce((sum, student) => sum + student.pendingAmount, 0),
-        studentsWithOutstanding: studentsWithFees.filter(student => student.pendingAmount > 0).length,
-        totalStudents: studentsWithFees.length
-      };
     }
+    
+    // Always calculate outstanding fees summary
+    studentsData = {
+      outstandingFees: studentsWithFees.reduce((sum, student) => sum + student.pendingAmount, 0),
+      studentsWithOutstanding: studentsWithFees.filter(student => student.pendingAmount > 0).length,
+      totalStudents: studentsWithFees.length
+    };
+    
+    console.log("Students summary:", studentsData);
   } catch (error) {
     console.warn("Could not fetch students data for fee collection:", error);
+    console.error("Students fetch error details:", error);
   }
 
   const hasData = totalRevenue > 0 || totalExpenses > 0;

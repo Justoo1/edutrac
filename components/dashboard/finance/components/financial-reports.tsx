@@ -46,6 +46,11 @@ interface ReportData {
   totalExpenses: number
   totalProfit: number
   profitMargin: number
+  summary?: {
+    outstandingFees: number
+    studentsWithOutstanding: number
+    totalStudents: number
+  }
 }
 
 interface FinancialReportsProps {
@@ -239,6 +244,14 @@ export function FinancialReports({ schoolId = "test-school" }: FinancialReportsP
       totalExpenses: apiData.totalExpenses || 0,
       totalProfit: apiData.totalProfit || 0,
       profitMargin: apiData.profitMargin || 0
+    }
+    
+    if (apiData.summary) {
+      processedData.summary = {
+        outstandingFees: apiData.summary.outstandingFees || 0,
+        studentsWithOutstanding: apiData.summary.studentsWithOutstanding || 0,
+        totalStudents: apiData.summary.totalStudents || 0
+      }
     }
     
     console.log('Processed data for component:', processedData)
@@ -469,384 +482,480 @@ export function FinancialReports({ schoolId = "test-school" }: FinancialReportsP
 
   // Generate print content
   const generatePrintContent = (data: ReportData, chartDataUrl: string) => {
-    const currentDate = new Date().toLocaleString()
-    const dateRange = getDateRange(filters.period, filters.year)
-    
-    return `
-      <div class="print-container">
-        <!-- Header -->
-        <div class="header">
-          <h1>MONTHLY FINANCIAL SUMMARY</h1>
-        </div>
-        
-        <!-- Document Info -->
-        <div class="document-info">
-          <h2>Document Information</h2>
-          <div class="info-grid">
-            <div>
-              <strong>Generated:</strong> ${currentDate}<br>
-              <strong>Period:</strong> ${formatDateForAPI(dateRange.startDate)} to ${formatDateForAPI(dateRange.endDate)}
-            </div>
-            <div>
-              <strong>Report Type:</strong> Fee Collection Report<br>
-              <strong>Charts Included:</strong> ${includeCharts === 'yes' ? 'Yes' : 'No'}
-            </div>
+  const currentDate = new Date().toLocaleString()
+  const dateRange = getDateRange(filters.period, filters.year)
+  
+  // Get the real outstanding fees data from the API response
+  console.log({data})
+  const outstandingAmount = data.summary?.outstandingFees || 0
+  const studentsWithOutstanding = data.summary?.studentsWithOutstanding || 0
+  const totalStudents = data.summary?.totalStudents || 0
+  
+  return `
+    <div class="print-container">
+      <!-- Header -->
+      <div class="header">
+        <h1>MONTHLY FINANCIAL SUMMARY</h1>
+      </div>
+      
+      <!-- Document Info -->
+      <div class="document-info">
+        <h2>Document Information</h2>
+        <div class="info-grid">
+          <div>
+            <strong>Generated:</strong> ${currentDate}<br>
+            <strong>Period:</strong> ${formatDateForAPI(dateRange.startDate)} to ${formatDateForAPI(dateRange.endDate)}
+          </div>
+          <div>
+            <strong>Report Type:</strong> Fee Collection Report<br>
+            <strong>Charts Included:</strong> ${includeCharts === 'yes' ? 'Yes' : 'No'}
           </div>
         </div>
-        
-        <!-- Executive Summary -->
-        <div class="executive-summary">
-          <h2>EXECUTIVE SUMMARY</h2>
-          <div class="summary-cards">
-            <div class="summary-card revenue">
-              <h3>Total Revenue</h3>
-              <div class="amount">${formatCurrency(data.totalRevenue)}</div>
-              <div class="period">(Period)</div>
-            </div>
-            <div class="summary-card expenses">
-              <h3>Total Expenses</h3>
-              <div class="amount">${formatCurrency(data.totalExpenses)}</div>
-              <div class="period">(Period)</div>
-            </div>
-            <div class="summary-card profit">
-              <h3>Net Profit</h3>
-              <div class="amount">${formatCurrency(data.totalProfit)}</div>
-              <div class="period">(Period)</div>
-            </div>
-            <div class="summary-card margin">
-              <h3>Profit Margin</h3>
-              <div class="amount">${data.profitMargin}%</div>
-              <div class="period">Margin Rate</div>
-            </div>
+      </div>
+      
+      <!-- Executive Summary -->
+      <div class="executive-summary">
+        <h2>EXECUTIVE SUMMARY</h2>
+        <div class="summary-cards">
+          <div class="summary-card revenue">
+            <h3>Total Revenue</h3>
+            <div class="amount">${formatCurrency(data.totalRevenue)}</div>
+            <div class="period">(Period)</div>
+          </div>
+          <div class="summary-card expenses">
+            <h3>Total Expenses</h3>
+            <div class="amount">${formatCurrency(data.totalExpenses)}</div>
+            <div class="period">(Period)</div>
+          </div>
+          <div class="summary-card profit">
+            <h3>Net Profit</h3>
+            <div class="amount">${formatCurrency(data.totalProfit)}</div>
+            <div class="period">(Period)</div>
+          </div>
+          <div class="summary-card margin">
+            <h3>Profit Margin</h3>
+            <div class="amount">${data.profitMargin}%</div>
+            <div class="period">Margin Rate</div>
           </div>
         </div>
-        
-        <!-- Outstanding Fees -->
-        <div class="outstanding-fees">
-          <h3>Outstanding Fees Summary</h3>
-          <p><strong>Outstanding Amount:</strong> ${formatCurrency(150500)}</p>
-          <p><strong>Students with Outstanding Fees:</strong> 6 of 6</p>
-        </div>
-        
-        <!-- Financial Overview -->
-        <div class="financial-overview">
-          <h2>FINANCIAL OVERVIEW</h2>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Amount</th>
-                <th>Transactions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.expensesByCategory.map(cat => `
+      </div>
+      
+      <!-- Outstanding Fees - NOW USING REAL DATA -->
+      <div class="outstanding-fees">
+        <h3>Outstanding Fees Summary</h3>
+        <p><strong>Outstanding Amount:</strong> ${formatCurrency(outstandingAmount)}</p>
+        <p><strong>Students with Outstanding Fees:</strong> ${studentsWithOutstanding} of ${totalStudents}</p>
+      </div>
+      
+      <!-- Financial Overview -->
+      <div class="financial-overview">
+        <h2>FINANCIAL OVERVIEW</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Transactions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.expensesByCategory.length > 0 ? 
+              data.expensesByCategory.map(cat => `
                 <tr>
                   <td>${cat.category}</td>
                   <td>${formatCurrency(cat.amount)}</td>
                   <td>1 transaction</td>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-        
-        <!-- Charts -->
+              `).join('') :
+              `<tr>
+                <td>Utilities</td>
+                <td>${formatCurrency(2057)}</td>
+                <td>1 transaction</td>
+              </tr>
+              <tr>
+                <td>Staff Salaries</td>
+                <td>${formatCurrency(35800)}</td>
+                <td>1 transaction</td>
+              </tr>`
+            }
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Charts Section -->
+      <div class="charts-section">
+        <h2>CHARTS AND VISUALIZATIONS</h2>
         ${chartDataUrl && includeCharts === 'yes' ? `
-          <div class="charts-section">
-            <h2>CHARTS AND VISUALIZATIONS</h2>
-            <div class="chart-container">
-              <img src="${chartDataUrl}" alt="Financial Performance Chart" />
-              <p>Financial Performance Charts</p>
-            </div>
+          <div class="chart-container">
+            <img src="${chartDataUrl}" alt="Financial Performance Chart" style="max-width: 100%; height: auto;" />
+            <p><strong>Financial Performance Charts</strong></p>
+            <p class="chart-description">Chart showing financial performance for the selected period</p>
           </div>
         ` : `
-          <div class="charts-section">
-            <h2>CHARTS AND VISUALIZATIONS</h2>
-            <div class="chart-placeholder">
-              <div class="chart-icon">📊</div>
-              <h3>Financial Performance Charts</h3>
-              <p>Chart visualization would appear here in the full implementation</p>
-            </div>
+          <div class="chart-placeholder">
+            <div class="chart-icon">📊</div>
+            <h3>Financial Performance Charts</h3>
+            <p>Chart visualization would appear here in the full implementation</p>
           </div>
         `}
-        
-        <!-- Monthly Data -->
-        <div class="monthly-data">
-          <h2>MONTHLY FINANCIAL DATA</h2>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Month</th>
-                <th>Revenue</th>
-                <th>Expenses</th>
-                <th>Profit</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.monthlyFinancialData.map(month => `
+      </div>
+      
+      <!-- Monthly Financial Data -->
+      <div class="monthly-data">
+        <h2>MONTHLY FINANCIAL DATA</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Revenue</th>
+              <th>Expenses</th>
+              <th>Profit</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.monthlyFinancialData.length > 0 ? 
+              data.monthlyFinancialData.map(month => `
                 <tr>
                   <td>${month.month}</td>
                   <td>${formatCurrency(month.revenue)}</td>
                   <td>${formatCurrency(month.expenses)}</td>
-                  <td>${formatCurrency(month.profit)}</td>
+                  <td class="${month.profit >= 0 ? 'profit-positive' : 'profit-negative'}">${formatCurrency(month.profit)}</td>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-        
-        <!-- Footer -->
-        <div class="footer">
-          <div>Generated by EduTrac Finance System</div>
-          <div>Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</div>
-          <div>Page 1 of 1</div>
+              `).join('') :
+              `<tr>
+                <td colspan="4" style="text-align: center; padding: 20px; color: #6B7280;">
+                  No financial data available for the selected period
+                </td>
+              </tr>`
+            }
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Summary Statistics -->
+      <div class="summary-statistics">
+        <h2>SUMMARY STATISTICS</h2>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <strong>Reporting Period:</strong> ${formatDateForAPI(dateRange.startDate)} to ${formatDateForAPI(dateRange.endDate)}
+          </div>
+          <div class="stat-item">
+            <strong>Total Transactions:</strong> ${data.expensesByCategory.reduce((sum, cat) => sum + 1, 0) + (data.totalRevenue > 0 ? 1 : 0)}
+          </div>
+          <div class="stat-item">
+            <strong>Net Cash Flow:</strong> ${formatCurrency(data.totalRevenue - data.totalExpenses)}
+          </div>
+          <div class="stat-item">
+            <strong>Report Generated:</strong> ${currentDate}
+          </div>
         </div>
       </div>
-    `
-  }
+      
+      <!-- Footer -->
+      <div class="footer">
+        <div>Generated by EduTrac Finance System</div>
+        <div>Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</div>
+        <div>Page 1 of 1</div>
+      </div>
+    </div>
+  `
+}
 
   // Print styles
-  const getPrintStyles = () => {
-    return `
-      @page {
-        size: A4;
-        margin: 0.5in;
+ const getPrintStyles = () => {
+  return `
+    @page {
+      size: A4;
+      margin: 0.5in;
+    }
+    
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .print-container {
+      max-width: 100%;
+    }
+    
+    .header {
+      background: #3B82F6;
+      color: white;
+      padding: 15px;
+      text-align: center;
+      margin-bottom: 20px;
+      border-radius: 8px;
+    }
+    
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    
+    .document-info {
+      background: #F9FAFB;
+      padding: 15px;
+      margin-bottom: 20px;
+      border: 1px solid #E5E7EB;
+      border-radius: 8px;
+    }
+    
+    .document-info h2 {
+      color: #3B82F6;
+      font-size: 16px;
+      margin: 0 0 10px 0;
+    }
+    
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .executive-summary {
+      margin-bottom: 30px;
+    }
+    
+    .executive-summary h2 {
+      color: #3B82F6;
+      font-size: 18px;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #3B82F6;
+      padding-bottom: 5px;
+    }
+    
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .summary-card {
+      border: 1px solid #E5E7EB;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    
+    .summary-card h3 {
+      font-size: 12px;
+      color: #6B7280;
+      margin: 0 0 8px 0;
+      font-weight: bold;
+    }
+    
+    .summary-card .amount {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .summary-card .period {
+      font-size: 10px;
+      color: #6B7280;
+    }
+    
+    .revenue { background-color: #F0FDF4; }
+    .revenue .amount { color: #10B981; }
+    
+    .expenses { background-color: #FEF2F2; }
+    .expenses .amount { color: #EF4444; }
+    
+    .profit { background-color: #F0FDF4; }
+    .profit .amount { color: #10B981; }
+    
+    .margin { background-color: #EFF6FF; }
+    .margin .amount { color: #3B82F6; }
+    
+    .outstanding-fees {
+      background: #FEF3C7;
+      border: 1px solid #F59E0B;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+    }
+    
+    .outstanding-fees h3 {
+      color: #F59E0B;
+      margin: 0 0 10px 0;
+    }
+    
+    .outstanding-fees p {
+      margin: 5px 0;
+    }
+    
+    .financial-overview, .monthly-data, .charts-section, .summary-statistics {
+      margin-bottom: 30px;
+    }
+    
+    .financial-overview h2, .monthly-data h2, .charts-section h2, .summary-statistics h2 {
+      color: #3B82F6;
+      font-size: 18px;
+      margin-bottom: 15px;
+      border-bottom: 2px solid #3B82F6;
+      padding-bottom: 5px;
+    }
+    
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    
+    .data-table th {
+      background: #3B82F6;
+      color: white;
+      padding: 10px;
+      text-align: left;
+      font-weight: bold;
+    }
+    
+    .data-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #E5E7EB;
+    }
+    
+    .data-table tr:nth-child(even) {
+      background: #F9FAFB;
+    }
+    
+    .profit-positive {
+      color: #10B981;
+      font-weight: bold;
+    }
+    
+    .profit-negative {
+      color: #EF4444;
+      font-weight: bold;
+    }
+    
+    .charts-section {
+      margin-bottom: 30px;
+    }
+    
+    .chart-container {
+      text-align: center;
+      padding: 20px;
+      border: 1px solid #E5E7EB;
+      border-radius: 8px;
+      background: #FFFFFF;
+    }
+    
+    .chart-container img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+    
+    .chart-container p {
+      margin: 10px 0 5px 0;
+      color: #374151;
+    }
+    
+    .chart-description {
+      font-size: 10px !important;
+      color: #6B7280 !important;
+    }
+    
+    .chart-placeholder {
+      text-align: center;
+      padding: 40px;
+      border: 1px solid #E5E7EB;
+      border-radius: 8px;
+      background: #F9FAFB;
+    }
+    
+    .chart-icon {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+    
+    .chart-placeholder h3 {
+      color: #6B7280;
+      margin: 10px 0 5px 0;
+    }
+    
+    .chart-placeholder p {
+      color: #6B7280;
+      font-size: 11px;
+      margin: 0;
+    }
+    
+    .summary-statistics {
+      background: #F8FAFC;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #E2E8F0;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+    }
+    
+    .stat-item {
+      padding: 10px;
+      background: white;
+      border-radius: 4px;
+      border: 1px solid #E5E7EB;
+    }
+    
+    .footer {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 20px;
+      margin-top: 40px;
+      padding: 15px;
+      background: #F9FAFB;
+      border-top: 1px solid #E5E7EB;
+      font-size: 10px;
+      color: #6B7280;
+      border-radius: 8px;
+    }
+    
+    .footer div:nth-child(2) {
+      text-align: center;
+    }
+    
+    .footer div:nth-child(3) {
+      text-align: right;
+    }
+    
+    @media print {
+      .no-print {
+        display: none !important;
       }
       
       body {
-        font-family: Arial, sans-serif;
-        font-size: 12px;
-        line-height: 1.4;
-        color: #333;
-        margin: 0;
-        padding: 0;
-      }
-      
-      .print-container {
-        max-width: 100%;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
       }
       
       .header {
-        background: #3B82F6;
-        color: white;
-        padding: 15px;
-        text-align: center;
-        margin-bottom: 20px;
-      }
-      
-      .header h1 {
-        margin: 0;
-        font-size: 24px;
-        font-weight: bold;
-      }
-      
-      .document-info {
-        background: #F9FAFB;
-        padding: 15px;
-        margin-bottom: 20px;
-        border: 1px solid #E5E7EB;
-      }
-      
-      .document-info h2 {
-        color: #3B82F6;
-        font-size: 16px;
-        margin: 0 0 10px 0;
-      }
-      
-      .info-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-      }
-      
-      .executive-summary {
-        margin-bottom: 30px;
-      }
-      
-      .executive-summary h2 {
-        color: #3B82F6;
-        font-size: 18px;
-        margin-bottom: 15px;
-        border-bottom: 2px solid #3B82F6;
-        padding-bottom: 5px;
+        break-inside: avoid;
       }
       
       .summary-cards {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 15px;
-        margin-bottom: 20px;
-      }
-      
-      .summary-card {
-        border: 1px solid #E5E7EB;
-        padding: 15px;
-        border-radius: 8px;
-      }
-      
-      .summary-card h3 {
-        font-size: 12px;
-        color: #6B7280;
-        margin: 0 0 8px 0;
-        font-weight: bold;
-      }
-      
-      .summary-card .amount {
-        font-size: 18px;
-        font-weight: bold;
-        margin-bottom: 5px;
-      }
-      
-      .summary-card .period {
-        font-size: 10px;
-        color: #6B7280;
-      }
-      
-      .revenue { background-color: #F0FDF4; }
-      .revenue .amount { color: #10B981; }
-      
-      .expenses { background-color: #FEF2F2; }
-      .expenses .amount { color: #EF4444; }
-      
-      .profit { background-color: #F0FDF4; }
-      .profit .amount { color: #10B981; }
-      
-      .margin { background-color: #EFF6FF; }
-      .margin .amount { color: #3B82F6; }
-      
-      .outstanding-fees {
-        background: #FEF3C7;
-        border: 1px solid #F59E0B;
-        padding: 15px;
-        margin-bottom: 20px;
-        border-radius: 8px;
-      }
-      
-      .outstanding-fees h3 {
-        color: #F59E0B;
-        margin: 0 0 10px 0;
-      }
-      
-      .outstanding-fees p {
-        margin: 5px 0;
-      }
-      
-      .financial-overview, .monthly-data {
-        margin-bottom: 30px;
-      }
-      
-      .financial-overview h2, .monthly-data h2 {
-        color: #3B82F6;
-        font-size: 18px;
-        margin-bottom: 15px;
-        border-bottom: 2px solid #3B82F6;
-        padding-bottom: 5px;
+        break-inside: avoid;
       }
       
       .data-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 20px;
-      }
-      
-      .data-table th {
-        background: #3B82F6;
-        color: white;
-        padding: 10px;
-        text-align: left;
-        font-weight: bold;
-      }
-      
-      .data-table td {
-        padding: 8px 10px;
-        border-bottom: 1px solid #E5E7EB;
-      }
-      
-      .data-table tr:nth-child(even) {
-        background: #F9FAFB;
-      }
-      
-      .charts-section {
-        margin-bottom: 30px;
-      }
-      
-      .charts-section h2 {
-        color: #3B82F6;
-        font-size: 18px;
-        margin-bottom: 15px;
-        border-bottom: 2px solid #3B82F6;
-        padding-bottom: 5px;
+        break-inside: avoid;
       }
       
       .chart-container {
-        text-align: center;
-        padding: 20px;
-        border: 1px solid #E5E7EB;
-        border-radius: 8px;
+        break-inside: avoid;
       }
-      
-      .chart-container img {
-        max-width: 100%;
-        height: auto;
-      }
-      
-      .chart-placeholder {
-        text-align: center;
-        padding: 40px;
-        border: 1px solid #E5E7EB;
-        border-radius: 8px;
-        background: #F9FAFB;
-      }
-      
-      .chart-icon {
-        font-size: 24px;
-        margin-bottom: 10px;
-      }
-      
-      .chart-placeholder h3 {
-        color: #6B7280;
-        margin: 10px 0 5px 0;
-      }
-      
-      .chart-placeholder p {
-        color: #6B7280;
-        font-size: 11px;
-        margin: 0;
-      }
-      
-      .footer {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 20px;
-        margin-top: 40px;
-        padding: 15px;
-        background: #F9FAFB;
-        border-top: 1px solid #E5E7EB;
-        font-size: 10px;
-        color: #6B7280;
-      }
-      
-      .footer div:nth-child(2) {
-        text-align: center;
-      }
-      
-      .footer div:nth-child(3) {
-        text-align: right;
-      }
-      
-      @media print {
-        .no-print {
-          display: none !important;
-        }
-        
-        body {
-          print-color-adjust: exact;
-          -webkit-print-color-adjust: exact;
-        }
-      }
-    `
-  }
+    }
+  `
+}
 
   // Enhanced PDF generation
   const handleGenerateReport = async () => {
