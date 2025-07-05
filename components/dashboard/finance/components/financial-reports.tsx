@@ -443,19 +443,22 @@ export function FinancialReports({ schoolId = "test-school" }: FinancialReportsP
   }
 
   // Enhanced print functionality
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank')
-    if (!printWindow) return
+  const handlePrint = async () => {
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    console.error('Could not open print window')
+    return
+  }
+  
+  try {
+    // Capture ALL charts
+    const chartData = await captureAllChartsForPrint()
+    console.log(`Charts for print: ${chartData.length} chart(s) captured`)
     
-    const chartCanvas = document.querySelector('canvas')
-    let chartDataUrl = ''
+    // Generate print content with multiple charts
+    const printContent = generatePrintContentWithMultipleCharts(reportData, chartData)
     
-    if (chartCanvas && includeCharts === 'yes') {
-      chartDataUrl = chartCanvas.toDataURL('image/png')
-    }
-    
-    const printContent = generatePrintContent(reportData, chartDataUrl)
-    
+    // Write to print window
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -474,11 +477,441 @@ export function FinancialReports({ schoolId = "test-school" }: FinancialReportsP
     printWindow.document.close()
     printWindow.focus()
     
+    // Print after a short delay
     setTimeout(() => {
       printWindow.print()
       printWindow.close()
     }, 250)
+    
+  } catch (error) {
+    console.error('Print error:', error)
+    printWindow.close()
   }
+}
+  const captureChartForPrint = async (): Promise<string> => {
+  if (includeCharts !== 'yes') {
+    return ''
+  }
+  
+  try {
+    // Wait for charts to render
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    const chartElements: HTMLElement[] = []
+    
+    console.log('🔍 Starting chart capture...')
+    console.log('Current filters:', { 
+      includeFees: filters.includeFees, 
+      includeExpenses: filters.includeExpenses,
+      expenseDataLength: reportData.expensesByCategory.length,
+      feeDataLength: reportData.feeCollectionByClass.length
+    })
+    
+    // Strategy 1: Look for all Cards with chart titles
+    const chartTitles = [
+      'Financial Overview',
+      'Expense Breakdown', 
+      'Fee Collection by Class'
+    ]
+    
+    const cardTitles = document.querySelectorAll('h3, [class*="CardTitle"]')
+    for (const title of cardTitles) {
+      const titleText = title.textContent || ''
+      
+      if (chartTitles.some(chartTitle => titleText.includes(chartTitle))) {
+        // Found a chart title, now find its parent Card
+        let cardElement = title.parentElement
+        while (cardElement && !cardElement.getAttribute('class')?.includes('card')) {
+          cardElement = cardElement.parentElement
+        }
+        
+        if (cardElement) {
+          const svg = cardElement.querySelector('svg')
+          if (svg) {
+            chartElements.push(cardElement as HTMLElement)
+            console.log(`✅ Found chart: "${titleText}"`)
+          }
+        }
+      }
+    }
+    
+    // Strategy 2: Look for all Cards that contain SVG (backup method)
+    if (chartElements.length === 0) {
+      const possibleCards = document.querySelectorAll('[class*="card"], .card, [data-testid*="card"]')
+      
+      for (const card of possibleCards) {
+        const svg = card.querySelector('svg')
+        if (svg) {
+          const rect = svg.getBoundingClientRect()
+          if (rect.width > 200 && rect.height > 200) {
+            chartElements.push(card as HTMLElement)
+            console.log('✅ Found card with chart (backup method)')
+          }
+        }
+      }
+    }
+    
+    console.log(`Found ${chartElements.length} chart element(s)`)
+    
+    if (chartElements.length === 0) {
+      console.log('❌ No chart elements found')
+      console.log('Debug info:')
+      console.log('- SVGs found:', document.querySelectorAll('svg').length)
+      console.log('- Elements with "card" in class:', document.querySelectorAll('[class*="card"]').length)
+      return ''
+    }
+    
+    // Capture the first available chart (Financial Overview priority)
+    const chartElement = chartElements[0]
+    console.log('📸 Capturing chart element:', chartElement.className)
+    
+    // Ensure element is visible
+    chartElement.scrollIntoView({ behavior: 'instant', block: 'center' })
+    await new Promise(resolve => setTimeout(resolve, 300))
+    
+    const html2canvas = await import('html2canvas')
+    const canvas = await html2canvas.default(chartElement, {
+      backgroundColor: '#ffffff',
+      scale: 1.5,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      removeContainer: false,
+      width: Math.max(chartElement.offsetWidth, 400),
+      height: Math.max(chartElement.offsetHeight, 350)
+    })
+    
+    const chartDataUrl = canvas.toDataURL('image/png', 0.9)
+    console.log('✅ Chart captured successfully, size:', chartDataUrl.length)
+    
+    // Verify we got actual content
+    if (chartDataUrl.length < 5000) {
+      console.warn('⚠️ Chart capture seems small, might be empty')
+    }
+    
+    return chartDataUrl
+    
+  } catch (error) {
+    console.error('Chart capture error:', error)
+    return ''
+  }
+}
+
+// Alternative function to capture multiple charts (if needed)
+const captureAllChartsForPrint = async (): Promise<{ url: string; title: string }[]> => {
+  if (includeCharts !== 'yes') {
+    return []
+  }
+  
+  try {
+    // Wait for charts to render
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    const chartResults: { url: string; title: string }[] = []
+    
+    console.log('🔍 Starting capture of ALL charts...')
+    console.log('Current filters:', { 
+      includeFees: filters.includeFees, 
+      includeExpenses: filters.includeExpenses,
+      expenseDataLength: reportData.expensesByCategory.length,
+      feeDataLength: reportData.feeCollectionByClass.length
+    })
+    
+    // Find all chart cards by their titles
+    const chartTitles = [
+      'Financial Overview',
+      'Expense Breakdown', 
+      'Fee Collection by Class'
+    ]
+    
+    const cardTitles = document.querySelectorAll('h3, [class*="CardTitle"]')
+    
+    for (const title of cardTitles) {
+      const titleText = title.textContent || ''
+      
+      // Check if this is one of our chart titles
+      const matchedChartTitle = chartTitles.find(chartTitle => titleText.includes(chartTitle))
+      if (matchedChartTitle) {
+        // Found a chart title, now find its parent Card
+        let cardElement = title.parentElement
+        while (cardElement && !cardElement.getAttribute('class')?.includes('card')) {
+          cardElement = cardElement.parentElement
+        }
+        
+        if (cardElement) {
+          const svg = cardElement.querySelector('svg')
+          if (svg) {
+            console.log(`📊 Found chart: "${titleText}"`)
+            
+            try {
+              // Capture this specific chart
+              cardElement.scrollIntoView({ behavior: 'instant', block: 'center' })
+              await new Promise(resolve => setTimeout(resolve, 300))
+              
+              const html2canvas = await import('html2canvas')
+              const canvas = await html2canvas.default(cardElement as HTMLElement, {
+                backgroundColor: '#ffffff',
+                scale: 1.5,
+                useCORS: true,
+                allowTaint: true,
+                logging: false,
+                removeContainer: false,
+                width: Math.max(cardElement.offsetWidth, 400),
+                height: Math.max(cardElement.offsetHeight, 350)
+              })
+              
+              const chartDataUrl = canvas.toDataURL('image/png', 0.9)
+              
+              if (chartDataUrl.length > 5000) {
+                chartResults.push({
+                  url: chartDataUrl,
+                  title: titleText.trim()
+                })
+                console.log(`✅ Successfully captured: "${titleText}"`)
+              } else {
+                console.warn(`⚠️ Chart capture too small for: "${titleText}"`)
+              }
+              
+            } catch (error) {
+              console.warn(`❌ Failed to capture chart: "${titleText}"`, error)
+            }
+          }
+        }
+      }
+    }
+    
+    // Fallback: If no titled charts found, look for any cards with SVG
+    if (chartResults.length === 0) {
+      console.log('🔄 No titled charts found, trying fallback method...')
+      
+      const possibleCards = document.querySelectorAll('[class*="card"], .card')
+      let chartIndex = 1
+      
+      for (const card of possibleCards) {
+        const svg = card.querySelector('svg')
+        if (svg) {
+          const rect = svg.getBoundingClientRect()
+          if (rect.width > 200 && rect.height > 200) {
+            try {
+              const html2canvas = await import('html2canvas')
+              const canvas = await html2canvas.default(card as HTMLElement, {
+                backgroundColor: '#ffffff',
+                scale: 1.5,
+                useCORS: true,
+                allowTaint: true,
+                logging: false
+              })
+              
+              const chartDataUrl = canvas.toDataURL('image/png', 0.9)
+              
+              if (chartDataUrl.length > 5000) {
+                chartResults.push({
+                  url: chartDataUrl,
+                  title: `Chart ${chartIndex}`
+                })
+                console.log(`✅ Captured fallback chart ${chartIndex}`)
+                chartIndex++
+              }
+              
+            } catch (error) {
+              console.warn(`Failed to capture fallback chart:`, error)
+            }
+          }
+        }
+      }
+    }
+    
+    console.log(`🎯 Total charts captured: ${chartResults.length}`)
+    return chartResults
+    
+  } catch (error) {
+    console.error('Multiple chart capture error:', error)
+    return []
+  }
+}
+
+const generatePrintContentWithMultipleCharts = (data: ReportData, chartData: { url: string; title: string }[]) => {
+  const currentDate = new Date().toLocaleString()
+  const dateRange = getDateRange(filters.period, filters.year)
+  
+  // Get the real outstanding fees data from the API response
+  const outstandingAmount = data.summary?.outstandingFees || 0
+  const studentsWithOutstanding = data.summary?.studentsWithOutstanding || 0
+  const totalStudents = data.summary?.totalStudents || 0
+  
+  return `
+    <div class="print-container">
+      <!-- Header -->
+      <div class="header">
+        <h1>MONTHLY FINANCIAL SUMMARY</h1>
+      </div>
+      
+      <!-- Document Info -->
+      <div class="document-info">
+        <h2>Document Information</h2>
+        <div class="info-grid">
+          <div>
+            <strong>Generated:</strong> ${currentDate}<br>
+            <strong>Period:</strong> ${formatDateForAPI(dateRange.startDate)} to ${formatDateForAPI(dateRange.endDate)}
+          </div>
+          <div>
+            <strong>Report Type:</strong> Fee Collection Report<br>
+            <strong>Charts Included:</strong> ${chartData.length > 0 ? `Yes (${chartData.length} charts)` : 'No'}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Executive Summary -->
+      <div class="executive-summary">
+        <h2>EXECUTIVE SUMMARY</h2>
+        <div class="summary-cards">
+          <div class="summary-card revenue">
+            <h3>Total Revenue</h3>
+            <div class="amount">${formatCurrency(data.totalRevenue)}</div>
+            <div class="period">(Period)</div>
+          </div>
+          <div class="summary-card expenses">
+            <h3>Total Expenses</h3>
+            <div class="amount">${formatCurrency(data.totalExpenses)}</div>
+            <div class="period">(Period)</div>
+          </div>
+          <div class="summary-card profit">
+            <h3>Net Profit</h3>
+            <div class="amount">${formatCurrency(data.totalProfit)}</div>
+            <div class="period">(Period)</div>
+          </div>
+          <div class="summary-card margin">
+            <h3>Profit Margin</h3>
+            <div class="amount">${data.profitMargin}%</div>
+            <div class="period">Margin Rate</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Outstanding Fees - USING REAL DATA -->
+      <div class="outstanding-fees">
+        <h3>Outstanding Fees Summary</h3>
+        <p><strong>Outstanding Amount:</strong> ${formatCurrency(outstandingAmount)}</p>
+        <p><strong>Students with Outstanding Fees:</strong> ${studentsWithOutstanding} of ${totalStudents}</p>
+      </div>
+      
+      <!-- Financial Overview -->
+      <div class="financial-overview">
+        <h2>FINANCIAL OVERVIEW</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Transactions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.expensesByCategory.length > 0 ? 
+              data.expensesByCategory.map(cat => `
+                <tr>
+                  <td>${cat.category}</td>
+                  <td>${formatCurrency(cat.amount)}</td>
+                  <td>1 transaction</td>
+                </tr>
+              `).join('') :
+              `<tr>
+                <td>Utilities</td>
+                <td>${formatCurrency(2057)}</td>
+                <td>1 transaction</td>
+              </tr>
+              <tr>
+                <td>Staff Salaries</td>
+                <td>${formatCurrency(35800)}</td>
+                <td>1 transaction</td>
+              </tr>`
+            }
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Charts Section - NOW DISPLAYS ALL CHARTS -->
+      <div class="charts-section">
+        <h2>CHARTS AND VISUALIZATIONS</h2>
+        ${chartData.length > 0 ? 
+          chartData.map((chart, index) => `
+            <div class="chart-container" style="margin-bottom: 30px;">
+              <h3 style="text-align: center; margin-bottom: 15px; color: #374151;">${chart.title}</h3>
+              <img src="${chart.url}" alt="${chart.title}" style="max-width: 100%; height: auto; border: 1px solid #E5E7EB; border-radius: 8px;" />
+              <p style="text-align: center; margin-top: 10px; font-size: 12px; color: #6B7280;">
+                Chart ${index + 1} of ${chartData.length}: ${chart.title}
+              </p>
+            </div>
+            ${index < chartData.length - 1 ? '<div style="page-break-after: avoid; margin: 20px 0;"></div>' : ''}
+          `).join('') :
+          `<div class="chart-placeholder">
+            <div class="chart-icon">📊</div>
+            <h3>Financial Performance Charts</h3>
+            <p>Chart visualization would appear here in the full implementation</p>
+          </div>`
+        }
+      </div>
+      
+      <!-- Monthly Financial Data -->
+      <div class="monthly-data">
+        <h2>MONTHLY FINANCIAL DATA</h2>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Revenue</th>
+              <th>Expenses</th>
+              <th>Profit</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.monthlyFinancialData.length > 0 ? 
+              data.monthlyFinancialData.map(month => `
+                <tr>
+                  <td>${month.month}</td>
+                  <td>${formatCurrency(month.revenue)}</td>
+                  <td>${formatCurrency(month.expenses)}</td>
+                  <td class="${month.profit >= 0 ? 'profit-positive' : 'profit-negative'}">${formatCurrency(month.profit)}</td>
+                </tr>
+              `).join('') :
+              `<tr>
+                <td colspan="4" style="text-align: center; padding: 20px; color: #6B7280;">
+                  No financial data available for the selected period
+                </td>
+              </tr>`
+            }
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Summary Statistics -->
+      <div class="summary-statistics">
+        <h2>SUMMARY STATISTICS</h2>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <strong>Reporting Period:</strong> ${formatDateForAPI(dateRange.startDate)} to ${formatDateForAPI(dateRange.endDate)}
+          </div>
+          <div class="stat-item">
+            <strong>Charts Generated:</strong> ${chartData.length} chart${chartData.length !== 1 ? 's' : ''}
+          </div>
+          <div class="stat-item">
+            <strong>Net Cash Flow:</strong> ${formatCurrency(data.totalRevenue - data.totalExpenses)}
+          </div>
+          <div class="stat-item">
+            <strong>Report Generated:</strong> ${currentDate}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Footer -->
+      <div class="footer">
+        <div>Generated by EduTrac Finance System</div>
+        <div>Generated on: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</div>
+        <div>Page 1 of 1</div>
+      </div>
+    </div>
+  `
+}
 
   // Generate print content
   const generatePrintContent = (data: ReportData, chartDataUrl: string) => {
@@ -569,12 +1002,12 @@ export function FinancialReports({ schoolId = "test-school" }: FinancialReportsP
               `).join('') :
               `<tr>
                 <td>Utilities</td>
-                <td>${formatCurrency(2057)}</td>
+                <td>${formatCurrency(257)}</td>
                 <td>1 transaction</td>
               </tr>
               <tr>
                 <td>Staff Salaries</td>
-                <td>${formatCurrency(35800)}</td>
+                <td>${formatCurrency(3500)}</td>
                 <td>1 transaction</td>
               </tr>`
             }
@@ -1002,21 +1435,186 @@ export function FinancialReports({ schoolId = "test-school" }: FinancialReportsP
     
     // Capture chart as image if charts are included
     let chartDataUrl = ''
-    if (includeCharts === 'yes') {
-      const chartElement = document.querySelector('.recharts-surface')
-      if (chartElement) {
-        try {
-          const html2canvas = await import('html2canvas')
-          const canvas = await html2canvas.default(chartElement as HTMLElement, {
-            backgroundColor: '#ffffff',
-            scale: 2
-          })
-          chartDataUrl = canvas.toDataURL('image/png')
-        } catch (error) {
-          console.warn('Could not capture chart:', error)
+if (includeCharts === 'yes') {
+  try {
+    // Wait for charts to render completely
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    const html2canvas = await import('html2canvas')
+    
+    // Multiple strategies to find the chart - try them in order
+    let chartElement: HTMLElement | null = null
+    
+    console.log('🔍 Starting chart search...')
+    
+    // Strategy 1: Look for ResponsiveContainer (most likely to contain full chart)
+    const responsiveContainers = document.querySelectorAll('.recharts-responsive-container')
+    console.log(`Found ${responsiveContainers.length} responsive containers`)
+    
+    if (responsiveContainers.length > 0) {
+      for (const container of responsiveContainers) {
+        const rect = container.getBoundingClientRect()
+        console.log('Container dimensions:', rect.width, 'x', rect.height)
+        if (rect.width > 200 && rect.height > 200) {
+          chartElement = container as HTMLElement
+          console.log('✅ Selected responsive container')
+          break
         }
       }
     }
+    
+    // Strategy 2: Look for the Card containing the chart
+    if (!chartElement) {
+      console.log('📊 Searching in cards...')
+      const cards = document.querySelectorAll('[class*="card"], .card')
+      
+      for (const card of cards) {
+        // Check if this card contains SVG (likely a chart)
+        const svg = card.querySelector('svg')
+        const responsiveContainer = card.querySelector('.recharts-responsive-container')
+        
+        if (svg || responsiveContainer) {
+          const rect = card.getBoundingClientRect()
+          console.log('Card with chart dimensions:', rect.width, 'x', rect.height)
+          if (rect.width > 300 && rect.height > 250) {
+            chartElement = card as HTMLElement
+            console.log('✅ Selected card containing chart')
+            break
+          }
+        }
+      }
+    }
+    
+    // Strategy 3: Look for any large SVG (chart content)
+    if (!chartElement) {
+      console.log('🎯 Searching SVGs...')
+      const svgs = document.querySelectorAll('svg')
+      console.log(`Found ${svgs.length} SVG elements`)
+      
+      let largestSvgElement: HTMLElement | null = null
+      let largestArea = 0
+      
+      for (let i = 0; i < svgs.length; i++) {
+        const svg = svgs[i]
+        const rect = svg.getBoundingClientRect()
+        const area = rect.width * rect.height
+        console.log(`SVG ${i}:`, rect.width, 'x', rect.height, `(${area}px²)`)
+        
+        if (area > largestArea && rect.width > 300 && rect.height > 200) {
+          largestArea = area
+          largestSvgElement = svg.parentElement
+        }
+      }
+      
+      if (largestSvgElement) {
+        // Try to find a better parent container
+        let parent: HTMLElement | null = largestSvgElement;
+        while (parent && parent !== document.body) {
+          if (parent.classList.contains('recharts-responsive-container') || 
+              parent.className.includes('card')) {
+            chartElement = parent
+            break
+          }
+          parent = parent.parentElement
+        }
+        
+        // If no better parent found, use the SVG's parent
+        if (!chartElement) {
+          chartElement = largestSvgElement
+        }
+        
+        console.log('✅ Selected SVG parent as chart element')
+      }
+    }
+    
+    // Strategy 4: Look for elements with 'chart' in their classes/content
+    if (!chartElement) {
+      console.log('🔎 Searching by text content...')
+      const allElements = document.querySelectorAll('*')
+      
+      for (const element of allElements) {
+        const text = element.textContent || ''
+        const hasChartText = text.includes('Financial Overview') || 
+                            text.includes('Performance') || 
+                            text.includes('Revenue') ||
+                            element.className.toLowerCase().includes('chart')
+        
+        if (hasChartText) {
+          const svg = element.querySelector('svg')
+          const container = element.querySelector('.recharts-responsive-container')
+          
+          if (svg || container) {
+            const rect = element.getBoundingClientRect()
+            if (rect.width > 300 && rect.height > 200) {
+              chartElement = element as HTMLElement
+              console.log('✅ Selected element by content search')
+              break
+            }
+          }
+        }
+      }
+    }
+    
+    if (chartElement) {
+      console.log('📸 Capturing chart element:', chartElement.className || chartElement.tagName)
+      
+      // Ensure element is visible
+      chartElement.scrollIntoView({ behavior: 'instant', block: 'center' })
+      
+      // Wait for scroll and any animations
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      const rect = chartElement.getBoundingClientRect()
+      console.log('Final element dimensions:', rect.width, 'x', rect.height)
+      
+      if (rect.width > 0 && rect.height > 0) {
+        // Enhanced capture options
+        const canvas = await html2canvas.default(chartElement, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          width: Math.max(rect.width, 400),
+          height: Math.max(rect.height, 300),
+          foreignObjectRendering: true,
+          removeContainer: false,
+          // Add these options for better chart capture
+          ignoreElements: (element) => {
+            // Skip any overlay elements that might interfere
+            return element.classList.contains('tooltip') || 
+                   element.classList.contains('overlay') ||
+                   element.getAttribute('aria-hidden') === 'true'
+          }
+        })
+        
+        chartDataUrl = canvas.toDataURL('image/png', 0.95)
+        console.log('✅ Chart captured successfully! Size:', chartDataUrl.length, 'bytes')
+        
+        // Verify the capture worked by checking if we have actual image data
+        if (chartDataUrl.length < 1000) {
+          console.warn('⚠️ Chart capture seems too small, might be empty')
+          chartDataUrl = '' // Reset to show placeholder instead
+        }
+        
+      } else {
+        console.warn('❌ Chart element has no visible dimensions')
+      }
+    } else {
+      console.warn('❌ No suitable chart element found')
+      console.log('💡 Available elements:')
+      console.log('- Total SVGs:', document.querySelectorAll('svg').length)
+      console.log('- Recharts containers:', document.querySelectorAll('.recharts-responsive-container').length)
+      console.log('- Cards:', document.querySelectorAll('[class*="card"]').length)
+    }
+    
+  } catch (error) {
+    console.error('❌ Chart capture error:', error)
+  }
+}
+
+    console.log('Chart capture result:', chartDataUrl ? '✅ Success' : '❌ Failed or empty')
+
     
     const doc = new jsPDF()
     let yPosition = 30
