@@ -558,6 +558,18 @@ export const attendance = pgTable(
         onDelete: "cascade",
         onUpdate: "cascade",
       }),
+    academicYearId: text("academicYearId")
+      .notNull()
+      .references(() => academicYears.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    schoolId: text("schoolId")
+      .notNull()
+      .references(() => schools.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
     date: timestamp("date", { mode: "date" }).notNull(),
     status: text("status").notNull(), // present, absent, excused, late
     notes: text("notes"),
@@ -574,6 +586,8 @@ export const attendance = pgTable(
     return {
       studentIdIdx: index().on(table.studentId),
       classIdIdx: index().on(table.classId),
+      academicYearIdIdx: index().on(table.academicYearId),
+      schoolIdIdx: index().on(table.schoolId),
       dateIdx: index().on(table.date),
       uniqueAttendance: uniqueIndex().on(
         table.studentId,

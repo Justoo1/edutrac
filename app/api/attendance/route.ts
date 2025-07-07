@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import db from "@/lib/db"
-import { attendance, classEnrollments, students, staff, classes } from "@/lib/schema"
+import { attendance, classEnrollments, students, staff, classes, academicYears } from "@/lib/schema"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { and, eq, gte, lte, inArray, or } from "drizzle-orm"
@@ -23,6 +23,18 @@ export async function POST(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
+    const academicYear = await db.query.academicYears.findFirst({
+      where: (and(
+        eq(academicYears.isCurrent, true),
+        eq(academicYears.schoolId, session.user.schoolId)
+      )
+      )
+    })
+
+    if (!academicYear) {
+      return new NextResponse("Academic year not found", { status: 404 })
+    }
+
     const body = await req.json()
     const { classId, weekId, dates, isEditing } = body
 
@@ -39,6 +51,8 @@ export async function POST(req: Request) {
       const existingRecords = await db.query.attendance.findMany({
         where: and(
           eq(attendance.classId, classId),
+          eq(attendance.academicYearId, academicYear.id),
+          eq(attendance.schoolId, session.user.schoolId),
           gte(attendance.date, new Date(dates[0])),
           lte(attendance.date, new Date(dates[dates.length - 1]))
         )
@@ -53,13 +67,17 @@ export async function POST(req: Request) {
         dates.map((date: string) => ({
           studentId: enrollment.studentId,
           classId,
+          academicYearId: academicYear.id,
+          schoolId: session.user.schoolId,
           date: new Date(date),
           status: "none",
           createdBy: session.user.id
         }))
       )
 
+      
       if (newAttendanceRecords.length > 0) {
+        console.log({ newAttendanceRecords })
         await db.insert(attendance).values(newAttendanceRecords)
       }
 
@@ -73,11 +91,15 @@ export async function POST(req: Request) {
         dates.map((date: string) => ({
           studentId: enrollment.studentId,
           classId,
+          academicYearId: academicYear.id,
+          schoolId: session.user.schoolId,
           date: new Date(date),
           status: "none",
           createdBy: session.user.id
         }))
       )
+
+      console.log({ attendanceRecords })
 
       // Insert attendance records
       await db.insert(attendance).values(attendanceRecords)
@@ -95,6 +117,18 @@ export async function GET(req: Request) {
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return new NextResponse("Unauthorized", { status: 401 })
+    }
+
+    const academicYear = await db.query.academicYears.findFirst({
+      where: (and(
+        eq(academicYears.isCurrent, true),
+        eq(academicYears.schoolId, session.user.schoolId)
+      )
+      )
+    })
+
+    if (!academicYear) {
+      return new NextResponse("Academic year not found", { status: 404 })
     }
 
     const { searchParams } = new URL(req.url)
@@ -141,6 +175,8 @@ export async function GET(req: Request) {
     const attendanceRecords = await db.query.attendance.findMany({
       where: and(
         eq(attendance.classId, classId),
+        eq(attendance.academicYearId, academicYear.id),
+        eq(attendance.schoolId, session.user.schoolId),
         gte(attendance.date, startDate),
         lte(attendance.date, endDate)
       )
@@ -173,6 +209,18 @@ export async function PATCH(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
+    const academicYear = await db.query.academicYears.findFirst({
+      where: (and(
+        eq(academicYears.isCurrent, true),
+        eq(academicYears.schoolId, session.user.schoolId)
+      )
+      )
+    })
+
+    if (!academicYear) {
+      return new NextResponse("Academic year not found", { status: 404 })
+    }
+
     const body = await req.json()
     const { studentId, classId, date, status } = body
 
@@ -181,6 +229,8 @@ export async function PATCH(req: Request) {
       .set({ status })
       .where(and(
         eq(attendance.studentId, studentId),
+        eq(attendance.schoolId, session.user.schoolId),
+        eq(attendance.academicYearId, academicYear.id),
         eq(attendance.classId, classId),
         eq(attendance.date, new Date(date))
       ))

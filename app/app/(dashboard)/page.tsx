@@ -134,10 +134,13 @@ export default async function DashboardPage() {
       .leftJoin(students, eq(attendance.studentId, students.id))
       .where(and(
         eq(students.schoolId, school.id),
-        sql`${attendance.date} >= CURRENT_DATE - INTERVAL '7 days'`
+        // Get all records for the current academic year instead of just 7 days
+        currentAcademicYear?.id 
+          ? eq(attendance.academicYearId, currentAcademicYear.id)
+          : sql`EXTRACT(YEAR FROM ${attendance.date}) = EXTRACT(YEAR FROM CURRENT_DATE)`
       ))
       .groupBy(sql`DATE(${attendance.date})`, attendance.status)
-      .orderBy(desc(sql`DATE(${attendance.date})`)),
+      .orderBy(asc(sql`DATE(${attendance.date})`)),
 
     // Top performing students (based on term results)
     db.select({
