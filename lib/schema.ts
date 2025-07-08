@@ -858,6 +858,7 @@ export const schoolRelations = relations(schools, ({ one, many }) => ({
   academicTerms: many(academicTerms),
   courses: many(courses),
   periods: many(periods),
+  websiteConfig: one(websiteConfigs, { fields: [schools.id], references: [websiteConfigs.schoolId] }),
 }));
 
 export const staffRelations = relations(staff, ({ one, many }) => ({
@@ -1609,6 +1610,287 @@ export const examScoresRelations = relations(examScores, ({ one }) => ({
   student: one(students, { fields: [examScores.studentId], references: [students.id] }),
 }));
 
+// Website Builder System
+export const websitePages = pgTable(
+  "websitePages",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    schoolId: text("schoolId")
+      .notNull()
+      .references(() => schools.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    title: text("title").notNull(),
+    slug: text("slug").notNull(), // URL path like "/about", "/contact"
+    content: json("content"), // Page builder content structure
+    metaTitle: text("metaTitle"),
+    metaDescription: text("metaDescription"),
+    featuredImage: text("featuredImage"),
+    pageType: text("pageType").default("page").notNull(), // page, landing, blog, etc.
+    template: text("template").default("default"), // template variant
+    isHomePage: boolean("isHomePage").default(false),
+    isPublished: boolean("isPublished").default(false),
+    sortOrder: integer("sortOrder").default(0),
+    showInNavigation: boolean("showInNavigation").default(true),
+    customCSS: text("customCSS"),
+    customJS: text("customJS"),
+    seoSettings: json("seoSettings"), // SEO configuration
+    accessLevel: text("accessLevel").default("public"), // public, private, members-only
+    publishedAt: timestamp("publishedAt", { mode: "date" }),
+    createdBy: text("createdBy")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt", { mode: "date" })
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => {
+    return {
+      schoolIdIdx: index().on(table.schoolId),
+      slugSchoolIdIdx: uniqueIndex().on(table.schoolId, table.slug),
+      createdByIdx: index().on(table.createdBy),
+    };
+  },
+);
+
+// Website Components/Blocks
+export const websiteBlocks = pgTable(
+  "websiteBlocks",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    schoolId: text("schoolId")
+      .notNull()
+      .references(() => schools.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    pageId: text("pageId")
+      .references(() => websitePages.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    blockType: text("blockType").notNull(), // hero, text, image, gallery, form, etc.
+    content: json("content").notNull(), // Block configuration and content
+    styles: json("styles"), // Block-specific styling
+    sortOrder: integer("sortOrder").default(0),
+    isVisible: boolean("isVisible").default(true),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt", { mode: "date" })
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => {
+    return {
+      schoolIdIdx: index().on(table.schoolId),
+      pageIdIdx: index().on(table.pageId),
+      sortOrderIdx: index().on(table.sortOrder),
+    };
+  },
+);
+
+// Website Themes and Templates
+export const websiteThemes = pgTable(
+  "websiteThemes",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    name: text("name").notNull(),
+    description: text("description"),
+    thumbnail: text("thumbnail"),
+    isDefault: boolean("isDefault").default(false),
+    isPremium: boolean("isPremium").default(false),
+    config: json("config").notNull(), // Theme configuration
+    styles: json("styles").notNull(), // Theme styles
+    layouts: json("layouts"), // Available layouts
+    category: text("category").default("general"), // education, corporate, etc.
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt", { mode: "date" })
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => {
+    return {
+      categoryIdx: index().on(table.category),
+    };
+  },
+);
+
+// School Website Configuration
+export const websiteConfigs = pgTable(
+  "websiteConfigs",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    schoolId: text("schoolId")
+      .notNull()
+      .references(() => schools.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    themeId: text("themeId")
+      .references(() => websiteThemes.id, {
+        onDelete: "set null",
+        onUpdate: "cascade",
+      }),
+    siteName: text("siteName"),
+    tagline: text("tagline"),
+    favicon: text("favicon"),
+    socialMedia: json("socialMedia"), // Social media links
+    contactInfo: json("contactInfo"), // Contact details
+    globalStyles: json("globalStyles"), // Site-wide styling
+    headerConfig: json("headerConfig"), // Header configuration
+    footerConfig: json("footerConfig"), // Footer configuration
+    navigationMenu: json("navigationMenu"), // Site navigation
+    seoSettings: json("seoSettings"), // Global SEO settings
+    analytics: json("analytics"), // Google Analytics, etc.
+    isMaintenanceMode: boolean("isMaintenanceMode").default(false),
+    maintenanceMessage: text("maintenanceMessage"),
+    customDomainSettings: json("customDomainSettings"),
+    isPublished: boolean("isPublished").default(false),
+    publishedAt: timestamp("publishedAt", { mode: "date" }),
+    lastBackup: timestamp("lastBackup", { mode: "date" }),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt", { mode: "date" })
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => {
+    return {
+      schoolIdIdx: uniqueIndex().on(table.schoolId), // One config per school
+      themeIdIdx: index().on(table.themeId),
+    };
+  },
+);
+
+// Website Media Library
+export const websiteMedia = pgTable(
+  "websiteMedia",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    schoolId: text("schoolId")
+      .notNull()
+      .references(() => schools.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    fileName: text("fileName").notNull(),
+    originalName: text("originalName").notNull(),
+    fileUrl: text("fileUrl").notNull(),
+    fileType: text("fileType").notNull(), // image, video, document, etc.
+    mimeType: text("mimeType").notNull(),
+    fileSize: integer("fileSize").notNull(), // in bytes
+    dimensions: json("dimensions"), // width, height for images
+    altText: text("altText"),
+    caption: text("caption"),
+    tags: json("tags"), // Array of tags for organization
+    uploadedBy: text("uploadedBy")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt", { mode: "date" })
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => {
+    return {
+      schoolIdIdx: index().on(table.schoolId),
+      fileTypeIdx: index().on(table.fileType),
+      uploadedByIdx: index().on(table.uploadedBy),
+    };
+  },
+);
+
+// Website Forms (Contact forms, applications, etc.)
+export const websiteForms = pgTable(
+  "websiteForms",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    schoolId: text("schoolId")
+      .notNull()
+      .references(() => schools.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    name: text("name").notNull(),
+    description: text("description"),
+    formSchema: json("formSchema").notNull(), // Form field definitions
+    settings: json("settings"), // Form settings (notifications, etc.)
+    isActive: boolean("isActive").default(true),
+    submissionCount: integer("submissionCount").default(0),
+    createdBy: text("createdBy")
+      .notNull()
+      .references(() => users.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt", { mode: "date" })
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => {
+    return {
+      schoolIdIdx: index().on(table.schoolId),
+      createdByIdx: index().on(table.createdBy),
+    };
+  },
+);
+
+// Form Submissions
+export const websiteFormSubmissions = pgTable(
+  "websiteFormSubmissions",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    formId: text("formId")
+      .notNull()
+      .references(() => websiteForms.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    schoolId: text("schoolId")
+      .notNull()
+      .references(() => schools.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    submissionData: json("submissionData").notNull(), // Form field values
+    submitterEmail: text("submitterEmail"),
+    submitterIP: text("submitterIP"),
+    userAgent: text("userAgent"),
+    isRead: boolean("isRead").default(false),
+    isReplied: boolean("isReplied").default(false),
+    notes: text("notes"),
+    createdAt: timestamp("createdAt", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => {
+    return {
+      formIdIdx: index().on(table.formId),
+      schoolIdIdx: index().on(table.schoolId),
+      isReadIdx: index().on(table.isRead),
+    };
+  },
+);
+
 // Enhanced Fee Structure Management
 export const feeStructures = pgTable(
   "feeStructures",
@@ -1948,6 +2230,53 @@ export const paymentReminderRelations = relations(paymentReminders, ({ one }) =>
   - receiptUrl: text("receiptUrl")
 */
 
+// Website Builder Relations
+export const websitePageRelations = relations(websitePages, ({ one, many }) => ({
+  school: one(schools, { fields: [websitePages.schoolId], references: [schools.id] }),
+  creator: one(users, { fields: [websitePages.createdBy], references: [users.id] }),
+  blocks: many(websiteBlocks),
+}));
+
+export const websiteBlockRelations = relations(websiteBlocks, ({ one }) => ({
+  school: one(schools, { fields: [websiteBlocks.schoolId], references: [schools.id] }),
+  page: one(websitePages, { fields: [websiteBlocks.pageId], references: [websitePages.id] }),
+}));
+
+export const websiteConfigRelations = relations(websiteConfigs, ({ one }) => ({
+  school: one(schools, { fields: [websiteConfigs.schoolId], references: [schools.id] }),
+  theme: one(websiteThemes, { fields: [websiteConfigs.themeId], references: [websiteThemes.id] }),
+}));
+
+export const websiteThemeRelations = relations(websiteThemes, ({ many }) => ({
+  configs: many(websiteConfigs),
+}));
+
+export const websiteMediaRelations = relations(websiteMedia, ({ one }) => ({
+  school: one(schools, { fields: [websiteMedia.schoolId], references: [schools.id] }),
+  uploader: one(users, { fields: [websiteMedia.uploadedBy], references: [users.id] }),
+}));
+
+export const websiteFormRelations = relations(websiteForms, ({ one, many }) => ({
+  school: one(schools, { fields: [websiteForms.schoolId], references: [schools.id] }),
+  creator: one(users, { fields: [websiteForms.createdBy], references: [users.id] }),
+  submissions: many(websiteFormSubmissions),
+}));
+
+export const websiteFormSubmissionRelations = relations(websiteFormSubmissions, ({ one }) => ({
+  form: one(websiteForms, { fields: [websiteFormSubmissions.formId], references: [websiteForms.id] }),
+  school: one(schools, { fields: [websiteFormSubmissions.schoolId], references: [schools.id] }),
+}));
+
+// Add website relations to schools
+export const schoolWebsiteRelations = relations(schools, ({ one, many }) => ({
+  // ... existing relations
+  websiteConfig: one(websiteConfigs),
+  websitePages: many(websitePages),
+  websiteBlocks: many(websiteBlocks),
+  websiteMedia: many(websiteMedia),
+  websiteForms: many(websiteForms),
+}));
+
 // Add types for new tables
 export type SelectFeeStructure = typeof feeStructures.$inferSelect;
 export type InsertFeeStructure = typeof feeStructures.$inferInsert;
@@ -1961,3 +2290,19 @@ export type SelectBudget = typeof budgets.$inferSelect;
 export type InsertBudget = typeof budgets.$inferInsert;
 export type SelectPaymentReminder = typeof paymentReminders.$inferSelect;
 export type InsertPaymentReminder = typeof paymentReminders.$inferInsert;
+
+// Website Builder Types
+export type SelectWebsitePage = typeof websitePages.$inferSelect;
+export type InsertWebsitePage = typeof websitePages.$inferInsert;
+export type SelectWebsiteBlock = typeof websiteBlocks.$inferSelect;
+export type InsertWebsiteBlock = typeof websiteBlocks.$inferInsert;
+export type SelectWebsiteTheme = typeof websiteThemes.$inferSelect;
+export type InsertWebsiteTheme = typeof websiteThemes.$inferInsert;
+export type SelectWebsiteConfig = typeof websiteConfigs.$inferSelect;
+export type InsertWebsiteConfig = typeof websiteConfigs.$inferInsert;
+export type SelectWebsiteMedia = typeof websiteMedia.$inferSelect;
+export type InsertWebsiteMedia = typeof websiteMedia.$inferInsert;
+export type SelectWebsiteForm = typeof websiteForms.$inferSelect;
+export type InsertWebsiteForm = typeof websiteForms.$inferInsert;
+export type SelectWebsiteFormSubmission = typeof websiteFormSubmissions.$inferSelect;
+export type InsertWebsiteFormSubmission = typeof websiteFormSubmissions.$inferInsert;

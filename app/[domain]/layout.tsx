@@ -79,7 +79,7 @@ export default async function SchoolLayout({
   return (
     <div className={fontMapper[data.font || "font-cal"]}>
       {/* School Header */}
-      <SchoolHeader school={data} domain={domain} />
+      {/* <SchoolHeader school={data} domain={domain} /> */}
       
       {/* Main Content */}
       <main className="min-h-screen">
@@ -87,7 +87,7 @@ export default async function SchoolLayout({
       </main>
       
       {/* School Footer */}
-      <SchoolFooter school={data} domain={domain} />
+      {/* <SchoolFooter school={data} domain={domain} /> */}
     </div>
   );
 }
