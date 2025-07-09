@@ -27,11 +27,16 @@ import {
   Monitor,
   Copy,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Grid,
+  Box,
+  Upload,
+  ExternalLink
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WebsitePreview } from './website-preview';
 import { HexColorPicker } from "react-colorful";
 import { useDebouncedCallback } from "use-debounce";
 import { toast } from "sonner";
@@ -60,7 +65,15 @@ interface Page {
   blocks: Block[];
 }
 
-const BLOCK_TYPES = [
+// Enhanced block types with layout options
+const LAYOUT_TYPES = [
+  { type: "section", label: "Section Container", icon: Box, description: "Full-width section container" },
+  { type: "container", label: "Container", icon: Layout, description: "Centered content container" },
+  { type: "columns", label: "Column Layout", icon: Grid, description: "Multi-column layout" },
+  { type: "row", label: "Row Layout", icon: Layout, description: "Horizontal row layout" },
+];
+
+const CONTENT_BLOCKS = [
   { type: "hero", label: "Hero Section", icon: Layout, description: "Large banner with heading and CTA" },
   { type: "text", label: "Text Block", icon: Type, description: "Rich text content" },
   { type: "image", label: "Image", icon: Image, description: "Single image with caption" },
@@ -73,10 +86,14 @@ const BLOCK_TYPES = [
   { type: "announcement", label: "Announcements", icon: Type, description: "School announcements" },
 ];
 
-const DraggableBlock = ({ blockType, onDrop }: { blockType: typeof BLOCK_TYPES[0], onDrop: (type: string) => void }) => {
+const DraggableBlock = ({ blockType, onDrop, category }: { 
+  blockType: typeof LAYOUT_TYPES[0] | typeof CONTENT_BLOCKS[0], 
+  onDrop: (type: string) => void,
+  category: string 
+}) => {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: 'block',
-    item: { blockType: blockType.type },
+    item: { blockType: blockType.type, category },
     end: (item, monitor) => {
       const dropResult = monitor.getDropResult();
       if (item && dropResult) {
@@ -95,7 +112,7 @@ const DraggableBlock = ({ blockType, onDrop }: { blockType: typeof BLOCK_TYPES[0
       ref={drag}
       className={`p-3 border rounded-lg cursor-move hover:bg-gray-50 transition-colors ${
         isDragging ? 'opacity-50' : ''
-      }`}
+      } ${category === 'layout' ? 'border-blue-200 bg-blue-50' : 'border-gray-200'}`}
     >
       <div className="flex items-center gap-2 mb-1">
         <Icon className="h-4 w-4" />
@@ -132,18 +149,18 @@ const DroppableCanvas = ({
   return (
     <div
       ref={drop}
-      className={`min-h-screen bg-white p-6 ${isOver ? 'bg-blue-50' : ''}`}
+      className={`min-h-screen bg-white ${isOver ? 'bg-blue-50' : ''}`}
     >
       {blocks.length === 0 ? (
-        <div className="flex items-center justify-center h-96 border-2 border-dashed border-gray-300 rounded-lg">
+        <div className="flex items-center justify-center h-96 border-2 border-dashed border-gray-300 rounded-lg m-6">
           <div className="text-center">
             <Layout className="h-12 w-12 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Start Building Your Page</h3>
-            <p className="text-gray-500 mb-4">Drag and drop blocks from the sidebar to begin</p>
+            <p className="text-gray-500 mb-4">Drag layout containers first, then add content blocks</p>
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div>
           {blocks.map((block, index) => (
             <BlockRenderer 
               key={block.id} 
@@ -176,70 +193,412 @@ const BlockRenderer = ({
   onMoveDown?: () => void;
   onDelete: () => void;
 }) => {
+  const getBlockStyles = (block: Block) => {
+    const styles: React.CSSProperties = {};
+    
+    // Apply common styling
+    if (block.styles?.backgroundColor) {
+      styles.backgroundColor = block.styles.backgroundColor;
+    }
+    if (block.styles?.textColor) {
+      styles.color = block.styles.textColor;
+    }
+    if (block.styles?.padding) {
+      const paddingMap = {
+        small: '1rem',
+        medium: '2rem',
+        large: '3rem',
+        'extra-large': '4rem'
+      };
+      styles.padding = paddingMap[block.styles.padding as keyof typeof paddingMap] || '2rem';
+    }
+    if (block.styles?.textAlign) {
+      styles.textAlign = block.styles.textAlign;
+    }
+    if (block.styles?.maxWidth) {
+      const maxWidthMap = {
+        small: '600px',
+        medium: '800px',
+        large: '1000px',
+        full: '100%'
+      };
+      styles.maxWidth = maxWidthMap[block.styles.maxWidth as keyof typeof maxWidthMap] || '100%';
+      if (block.styles.maxWidth !== 'full') {
+        styles.marginLeft = 'auto';
+        styles.marginRight = 'auto';
+      }
+    }
+    
+    return styles;
+  };
+
   const renderBlockContent = () => {
+    const blockStyles = getBlockStyles(block);
+    
     switch (block.type) {
+      case 'section':
+        return (
+          <section style={blockStyles} className="w-full">
+            <div className="border-2 border-dashed border-gray-300 p-8 text-center text-gray-500">
+              <Box className="h-8 w-8 mx-auto mb-2" />
+              <p>Section Container</p>
+              <p className="text-sm">Add content blocks inside this section</p>
+            </div>
+          </section>
+        );
+
+      case 'container':
+        return (
+          <div style={blockStyles} className="container mx-auto px-4">
+            <div className="border-2 border-dashed border-gray-300 p-6 text-center text-gray-500">
+              <Layout className="h-6 w-6 mx-auto mb-2" />
+              <p>Content Container</p>
+            </div>
+          </div>
+        );
+
+      case 'columns':
+        const columns = parseInt(block.styles?.columns || '2');
+        const gap = block.styles?.gap || 'medium';
+        const gapMap = { small: '1rem', medium: '2rem', large: '3rem' };
+        
+        return (
+          <div style={{...blockStyles, display: 'grid', gridTemplateColumns: `repeat(${columns}, 1fr)`, gap: gapMap[gap as keyof typeof gapMap] || '2rem'}}>
+            {Array.from({ length: columns }).map((_, i) => (
+              <div key={i} className="border-2 border-dashed border-gray-300 p-4 text-center text-gray-500 min-h-32">
+                <Grid className="h-6 w-6 mx-auto mb-2" />
+                <p>Column {i + 1}</p>
+              </div>
+            ))}
+          </div>
+        );
+
       case 'hero':
         return (
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-12 rounded-lg text-center">
-            <h1 className="text-4xl font-bold mb-4">
-              {block.content?.title || "Welcome to Our School"}
-            </h1>
-            <p className="text-xl mb-6">
-              {block.content?.subtitle || "Providing quality education since 1990"}
-            </p>
-            <Button size="lg" variant="secondary">
-              {block.content?.buttonText || "Learn More"}
-            </Button>
+          <div style={{
+            ...blockStyles,
+            backgroundImage: block.content?.backgroundImage ? `url(${block.content.backgroundImage})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            position: 'relative'
+          }} className="text-white py-20 px-8 text-center">
+            {!block.content?.backgroundImage && (
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600"></div>
+            )}
+            <div className="relative z-10">
+              <h1 className="text-5xl font-bold mb-6">
+                {block.content?.title || "Welcome to Our School"}
+              </h1>
+              <p className="text-xl mb-8 max-w-2xl mx-auto">
+                {block.content?.subtitle || "Providing quality education since 1990"}
+              </p>
+              <Button 
+                size="lg" 
+                variant="secondary"
+                style={{ backgroundColor: block.styles?.buttonColor }}
+              >
+                {block.content?.buttonText || "Learn More"}
+              </Button>
+            </div>
           </div>
         );
+
       case 'text':
         return (
-          <div className="prose max-w-none">
-            <div dangerouslySetInnerHTML={{ 
-              __html: block.content?.html || "<p>Add your text content here...</p>" 
-            }} />
+          <div style={blockStyles} className="prose max-w-none">
+            <div 
+              style={{
+                fontSize: block.styles?.fontSize === 'small' ? '0.875rem' :
+                         block.styles?.fontSize === 'large' ? '1.25rem' :
+                         block.styles?.fontSize === 'extra-large' ? '1.5rem' : '1rem'
+              }}
+              dangerouslySetInnerHTML={{ 
+                __html: block.content?.html || "<p>Add your text content here...</p>" 
+              }} 
+            />
           </div>
         );
+
       case 'image':
+        const imageSize = block.styles?.imageSize || 'auto';
+        const imageSizeMap = {
+          small: { maxWidth: '300px' },
+          medium: { maxWidth: '500px' },
+          large: { maxWidth: '700px' },
+          full: { width: '100%' },
+          auto: { maxWidth: '100%', height: 'auto' }
+        };
+        
+        const alignment = block.styles?.alignment || 'center';
+        const alignmentMap = {
+          left: { textAlign: 'left' as const },
+          center: { textAlign: 'center' as const },
+          right: { textAlign: 'right' as const }
+        };
+
+        const borderRadius = block.styles?.borderRadius || 'none';
+        const borderRadiusMap = {
+          none: '0',
+          small: '0.25rem',
+          medium: '0.5rem',
+          large: '1rem',
+          full: '50%'
+        };
+
+        const shadow = block.styles?.shadow || 'none';
+        const shadowMap = {
+          none: 'none',
+          small: '0 1px 3px rgba(0,0,0,0.12)',
+          medium: '0 4px 6px rgba(0,0,0,0.1)',
+          large: '0 10px 15px rgba(0,0,0,0.1)'
+        };
+
         return (
-          <div className="text-center">
+          <div style={{...blockStyles, ...alignmentMap[alignment as keyof typeof alignmentMap]}}>
             {block.content?.src ? (
-              <img 
-                src={block.content.src} 
-                alt={block.content.alt || ""} 
-                className="max-w-full h-auto rounded-lg mx-auto"
-              />
+              <div>
+                {block.content?.link ? (
+                  <a href={block.content.link} target="_blank" rel="noopener noreferrer">
+                    <img 
+                      src={block.content.src} 
+                      alt={block.content.alt || ""} 
+                      style={{
+                        ...imageSizeMap[imageSize as keyof typeof imageSizeMap],
+                        borderRadius: borderRadiusMap[borderRadius as keyof typeof borderRadiusMap],
+                        boxShadow: shadowMap[shadow as keyof typeof shadowMap],
+                        display: alignment === 'center' ? 'block' : 'inline-block',
+                        margin: alignment === 'center' ? '0 auto' : undefined
+                      }}
+                    />
+                  </a>
+                ) : (
+                  <img 
+                    src={block.content.src} 
+                    alt={block.content.alt || ""} 
+                    style={{
+                      ...imageSizeMap[imageSize as keyof typeof imageSizeMap],
+                      borderRadius: borderRadiusMap[borderRadius as keyof typeof borderRadiusMap],
+                      boxShadow: shadowMap[shadow as keyof typeof shadowMap],
+                      display: alignment === 'center' ? 'block' : 'inline-block',
+                      margin: alignment === 'center' ? '0 auto' : undefined
+                    }}
+                  />
+                )}
+                {block.content?.caption && (
+                  <p className="text-sm text-gray-600 mt-2">{block.content.caption}</p>
+                )}
+              </div>
             ) : (
               <div className="bg-gray-200 h-64 rounded-lg flex items-center justify-center">
-                <Image className="h-12 w-12 text-gray-400" />
+                <div className="text-center">
+                  <Image className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">Add image URL</p>
+                </div>
               </div>
-            )}
-            {block.content?.caption && (
-              <p className="text-sm text-gray-600 mt-2">{block.content.caption}</p>
             )}
           </div>
         );
-      case 'contact':
+
+      case 'gallery':
+        const galleryColumns = parseInt(block.styles?.columns || '3');
+        const galleryGap = block.styles?.gap || 'medium';
+        const galleryGapMap = { small: '0.5rem', medium: '1rem', large: '1.5rem' };
+        const aspectRatio = block.styles?.aspectRatio || 'auto';
+        
+        const aspectRatioStyles = {
+          auto: {},
+          square: { aspectRatio: '1 / 1', objectFit: 'cover' as const },
+          landscape: { aspectRatio: '16 / 9', objectFit: 'cover' as const },
+          portrait: { aspectRatio: '3 / 4', objectFit: 'cover' as const }
+        };
+
         return (
-          <Card>
-            <CardHeader>
-              <CardTitle>{block.content?.title || "Contact Us"}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Input placeholder="First Name" />
-                <Input placeholder="Last Name" />
+          <div style={blockStyles}>
+            {block.content?.title && (
+              <h3 className="text-2xl font-bold mb-6 text-center">{block.content.title}</h3>
+            )}
+            {block.content?.images && block.content.images.length > 0 ? (
+              <div 
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${galleryColumns}, 1fr)`,
+                  gap: galleryGapMap[galleryGap as keyof typeof galleryGapMap] || '1rem'
+                }}
+              >
+                {block.content.images.map((imageUrl: string, index: number) => (
+                  <div key={index} className="overflow-hidden rounded-lg">
+                    <img 
+                      src={imageUrl} 
+                      alt={`Gallery image ${index + 1}`}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        ...aspectRatioStyles[aspectRatio as keyof typeof aspectRatioStyles]
+                      }}
+                      className="transition-transform hover:scale-105"
+                    />
+                  </div>
+                ))}
               </div>
-              <Input placeholder="Email" />
-              <Input placeholder="Subject" />
-              <Textarea placeholder="Message" rows={4} />
-              <Button>{block.content?.submitText || "Send Message"}</Button>
-            </CardContent>
-          </Card>
+            ) : (
+              <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <Image className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">Add image URLs to create gallery</p>
+              </div>
+            )}
+          </div>
         );
+
+      case 'video':
+        const videoSize = block.styles?.videoSize || 'medium';
+        const videoSizeMap = {
+          small: { maxWidth: '400px' },
+          medium: { maxWidth: '600px' },
+          large: { maxWidth: '800px' },
+          full: { width: '100%' }
+        };
+        
+        const videoAlignment = block.styles?.alignment || 'center';
+        const videoAlignmentMap = {
+          left: { textAlign: 'left' as const },
+          center: { textAlign: 'center' as const },
+          right: { textAlign: 'right' as const }
+        };
+
+        const getEmbedUrl = (url: string) => {
+          if (url.includes('youtube.com/watch')) {
+            const videoId = url.split('v=')[1]?.split('&')[0];
+            return `https://www.youtube.com/embed/${videoId}`;
+          } else if (url.includes('youtu.be/')) {
+            const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+            return `https://www.youtube.com/embed/${videoId}`;
+          } else if (url.includes('vimeo.com/')) {
+            const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
+            return `https://player.vimeo.com/video/${videoId}`;
+          }
+          return url;
+        };
+
+        return (
+          <div style={{...blockStyles, ...videoAlignmentMap[videoAlignment as keyof typeof videoAlignmentMap]}}>
+            {block.content?.title && (
+              <h3 className="text-2xl font-bold mb-4">{block.content.title}</h3>
+            )}
+            {block.content?.videoUrl ? (
+              <div style={videoSizeMap[videoSize as keyof typeof videoSizeMap]}>
+                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                  <iframe
+                    src={getEmbedUrl(block.content.videoUrl)}
+                    className="absolute inset-0 w-full h-full rounded-lg"
+                    allowFullScreen
+                    title={block.content?.title || 'Video'}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-200 h-64 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <Video className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">Add video URL</p>
+                </div>
+              </div>
+            )}
+            {block.content?.description && (
+              <p className="text-gray-600 mt-4">{block.content.description}</p>
+            )}
+          </div>
+        );
+
+      case 'contact':
+        const formWidth = block.styles?.formWidth || 'medium';
+        const formWidthMap = {
+          small: { maxWidth: '400px' },
+          medium: { maxWidth: '600px' },
+          large: { maxWidth: '800px' },
+          full: { width: '100%' }
+        };
+
+        return (
+          <div style={blockStyles}>
+            <div style={{...formWidthMap[formWidth as keyof typeof formWidthMap], margin: '0 auto'}}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>{block.content?.title || "Contact Us"}</CardTitle>
+                  {block.content?.subtitle && (
+                    <p className="text-gray-600">{block.content.subtitle}</p>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {(!block.content?.fields || block.content.fields.name !== false) && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input placeholder="First Name" />
+                      <Input placeholder="Last Name" />
+                    </div>
+                  )}
+                  {(!block.content?.fields || block.content.fields.email !== false) && (
+                    <Input placeholder="Email" type="email" />
+                  )}
+                  {block.content?.fields?.phone && (
+                    <Input placeholder="Phone" type="tel" />
+                  )}
+                  {(!block.content?.fields || block.content.fields.subject !== false) && (
+                    <Input placeholder="Subject" />
+                  )}
+                  {(!block.content?.fields || block.content.fields.message !== false) && (
+                    <Textarea placeholder="Message" rows={4} />
+                  )}
+                  <Button 
+                    style={{ backgroundColor: block.styles?.buttonColor }}
+                    className="w-full"
+                  >
+                    {block.content?.submitText || "Send Message"}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        );
+
+      case 'stats':
+        const statsColumns = parseInt(block.styles?.columns || '4');
+        return (
+          <div style={blockStyles}>
+            {block.content?.stats && block.content.stats.length > 0 ? (
+              <div 
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${statsColumns}, 1fr)`,
+                  gap: '2rem'
+                }}
+              >
+                {block.content.stats.map((stat: any, index: number) => (
+                  <div key={index} className="text-center">
+                    <div 
+                      className="text-4xl font-bold mb-2"
+                      style={{ color: block.styles?.numberColor }}
+                    >
+                      {stat.number}
+                    </div>
+                    <div 
+                      className="text-lg"
+                      style={{ color: block.styles?.labelColor }}
+                    >
+                      {stat.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-8">
+                <p>Add statistics in the properties panel</p>
+              </div>
+            )}
+          </div>
+        );
+
       default:
         return (
-          <div className="p-6 bg-gray-100 rounded-lg text-center">
+          <div style={blockStyles} className="p-6 bg-gray-100 rounded-lg text-center">
             <p className="text-gray-600">Block type: {block.type}</p>
             <p className="text-sm text-gray-500">Configure this block in the sidebar</p>
           </div>
@@ -345,14 +704,74 @@ const BlockPropertiesPanel = ({
     });
   };
 
-  const renderPropertiesForm = () => {
-      const updateStyles = (updates: any) => {
-        onUpdateBlock(selectedBlock.id, {
-          styles: { ...selectedBlock.styles, ...updates }
-        });
-      };
+  const updateStyles = (updates: any) => {
+    onUpdateBlock(selectedBlock.id, {
+      styles: { ...selectedBlock.styles, ...updates }
+    });
+  };
 
+  const renderPropertiesForm = () => {
       switch (selectedBlock.type) {
+        case 'section':
+        case 'container':
+          return (
+            <div className="space-y-4">
+              <ColorPicker
+                label="Background Color"
+                value={selectedBlock.styles?.backgroundColor}
+                onChange={(color) => updateStyles({ backgroundColor: color })}
+              />
+              <div>
+                <Label>Padding</Label>
+                <Select
+                  value={selectedBlock.styles?.padding || 'medium'}
+                  onValueChange={(value) => updateStyles({ padding: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">Small</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="large">Large</SelectItem>
+                    <SelectItem value="extra-large">Extra Large</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          );
+
+        case 'columns':
+          return (
+            <div className="space-y-4">
+              <GridLayoutSelector
+                value={selectedBlock.styles?.columns || '2'}
+                onChange={(columns) => updateStyles({ columns })}
+              />
+              <div>
+                <Label>Gap Between Columns</Label>
+                <Select
+                  value={selectedBlock.styles?.gap || 'medium'}
+                  onValueChange={(value) => updateStyles({ gap: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">Small</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="large">Large</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <ColorPicker
+                label="Background Color"
+                value={selectedBlock.styles?.backgroundColor}
+                onChange={(color) => updateStyles({ backgroundColor: color })}
+              />
+            </div>
+          );
+
         case 'hero':
           return (
             <Tabs defaultValue="content" className="w-full">
@@ -567,6 +986,9 @@ const BlockPropertiesPanel = ({
                     onChange={(e) => updateContent({ src: e.target.value })}
                     placeholder="https://example.com/image.jpg"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enter a direct image URL (jpg, png, gif, webp)
+                  </p>
                 </div>
                 <div>
                   <Label htmlFor="alt">Alt Text</Label>
@@ -696,6 +1118,9 @@ const BlockPropertiesPanel = ({
                     placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg&#10;https://example.com/image3.jpg"
                     rows={6}
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enter one image URL per line. Use direct image URLs (jpg, png, gif, webp)
+                  </p>
                 </div>
               </TabsContent>
               
@@ -758,6 +1183,9 @@ const BlockPropertiesPanel = ({
                     onChange={(e) => updateContent({ videoUrl: e.target.value })}
                     placeholder="https://www.youtube.com/watch?v=..."
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Supports YouTube, Vimeo, and direct video file URLs
+                  </p>
                 </div>
                 <div>
                   <Label htmlFor="title">Video Title</Label>
@@ -951,6 +1379,9 @@ const BlockPropertiesPanel = ({
                     placeholder="1000|Students&#10;50|Teachers&#10;25|Years of Excellence&#10;100|% Success Rate"
                     rows={6}
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Format: number|label (e.g.,&quot;1000|Students&quot;)
+                  </p>
                 </div>
               </TabsContent>
               
@@ -1198,12 +1629,28 @@ export function WebsiteBuilderEditor({ schoolId, pageId, userId }: WebsiteBuilde
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string>();
+  const [showPreview, setShowPreview] = useState(false);
   const [page, setPage] = useState<Page>({
     id: pageId || 'new',
     title: 'New Page',
     slug: 'new-page',
     blocks: []
   });
+
+  useEffect(() => {
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.ctrlKey && event.key === 'p') {
+      event.preventDefault();
+      setShowPreview(true);
+    }
+    if (event.key === 'Escape' && showPreview) {
+      setShowPreview(false);
+    }
+  };
+
+  document.addEventListener('keydown', handleKeyDown);
+  return () => document.removeEventListener('keydown', handleKeyDown);
+}, [showPreview]);
 
   // Add this useEffect after the state declarations
   useEffect(() => {
@@ -1348,7 +1795,8 @@ export function WebsiteBuilderEditor({ schoolId, pageId, userId }: WebsiteBuilde
 
   const previewPage = () => {
     // TODO: Open preview in new tab
-    window.open(`/preview/${page.id}`, '_blank');
+    // window.open(`/preview/${page.id}`, '_blank');
+    setShowPreview(true);
   };
 
   const getViewportWidth = () => {
@@ -1370,14 +1818,44 @@ export function WebsiteBuilderEditor({ schoolId, pageId, userId }: WebsiteBuilde
           </div>
           
           <ScrollArea className="flex-1">
-            <div className="p-4 space-y-3">
-              {BLOCK_TYPES.map(blockType => (
-                <DraggableBlock 
-                  key={blockType.type} 
-                  blockType={blockType} 
-                  onDrop={addBlock}
-                />
-              ))}
+            <div className="p-4 space-y-4">
+              {/* Layout Blocks Section */}
+              <div>
+                <h3 className="text-sm font-medium text-blue-700 mb-3 flex items-center gap-2">
+                  <Layout className="h-4 w-4" />
+                  Layout Blocks
+                </h3>
+                <div className="space-y-2">
+                  {LAYOUT_TYPES.map(blockType => (
+                    <DraggableBlock 
+                      key={blockType.type} 
+                      blockType={blockType} 
+                      onDrop={addBlock}
+                      category="layout"
+                    />
+                  ))}
+                </div>
+              </div>
+              
+              <Separator />
+              
+              {/* Content Blocks Section */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <Type className="h-4 w-4" />
+                  Content Blocks
+                </h3>
+                <div className="space-y-2">
+                  {CONTENT_BLOCKS.map(blockType => (
+                    <DraggableBlock 
+                      key={blockType.type} 
+                      blockType={blockType} 
+                      onDrop={addBlock}
+                      category="content"
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </ScrollArea>
         </div>
@@ -1489,6 +1967,12 @@ export function WebsiteBuilderEditor({ schoolId, pageId, userId }: WebsiteBuilde
           </ScrollArea>
         </div>
       </div>
+      <WebsitePreview
+        blocks={blocks}
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        pageTitle={page.title}
+      />
     </DndProvider>
   );
 }
