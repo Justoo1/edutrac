@@ -1,0 +1,1 @@
+export { BlockConfigPanel } from './BlockConfigPanel';

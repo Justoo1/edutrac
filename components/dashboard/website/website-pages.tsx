@@ -27,6 +27,7 @@ import {
   Filter
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface WebsitePage {
   id: string;
@@ -107,7 +108,9 @@ export function WebsitePages({ schoolId }: WebsitePagesProps) {
     setIsLoading(true);
     try {
       const response = await fetch('/api/website/pages');
+      console.log({response})
       if (!response.ok) {
+        toast.error(`Failed to fetch pages ${response.statusText}`);
         throw new Error('Failed to fetch pages');
       }
       const data = await response.json();

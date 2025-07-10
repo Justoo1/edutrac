@@ -6,7 +6,7 @@ import { eq } from "drizzle-orm";
 import { schools } from "@/lib/schema";
 
 interface BuilderPageProps {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; new?: string }>;
 }
 
 export default async function BuilderPage({ searchParams }: BuilderPageProps) {
@@ -24,13 +24,16 @@ export default async function BuilderPage({ searchParams }: BuilderPageProps) {
     redirect("/onboarding");
   }
 
-  const {page:pageId} = await searchParams;
+  const {page:pageId, new:isNew} = await searchParams;
+
+  // If new=true, set pageId to 'new'
+  const finalPageId = isNew === 'true' ? 'new' : pageId;
 
   return (
     <div className="h-screen overflow-hidden">
       <WebsiteBuilderEditor 
         schoolId={school.id} 
-        pageId={pageId}
+        pageId={finalPageId}
         userId={session.user.id}
       />
     </div>

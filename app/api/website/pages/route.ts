@@ -4,6 +4,17 @@ import db from "@/lib/db";
 import { eq, and } from "drizzle-orm";
 import { schools, websitePages, websiteBlocks } from "@/lib/schema";
 
+
+interface Block {
+  pageId: string;
+  schoolId: string;
+  blockType: string;
+  content: object;
+  styles: object;
+  sortOrder: number;
+  isVisible: boolean;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
@@ -64,11 +75,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Get school information
-    const school = await db.query.schools.findFirst({
-      where: eq(schools.adminId, session.user.id),
-    });
+    const schoolId = session.user.schoolId;
 
-    if (!school) {
+    if (!schoolId) {
       return NextResponse.json({ error: "School not found" }, { status: 404 });
     }
 
@@ -96,7 +105,7 @@ export async function POST(request: NextRequest) {
     // Check if slug already exists for this school
     const existingPage = await db.query.websitePages.findFirst({
       where: and(
-        eq(websitePages.schoolId, school.id),
+        eq(websitePages.schoolId, schoolId),
         eq(websitePages.slug, slug)
       ),
     });
@@ -115,7 +124,7 @@ export async function POST(request: NextRequest) {
         .set({ isHomePage: false })
         .where(
           and(
-            eq(websitePages.schoolId, school.id),
+            eq(websitePages.schoolId, schoolId),
             eq(websitePages.isHomePage, true)
           )
         );
@@ -125,7 +134,7 @@ export async function POST(request: NextRequest) {
     const [newPage] = await db
       .insert(websitePages)
       .values({
-        schoolId: school.id,
+        schoolId: schoolId,
         title,
         slug,
         content,
@@ -163,21 +172,7 @@ async function createDefaultPages(schoolId: string, userId: string) {
       showInNavigation: true,
       accessLevel: "public",
       createdBy: userId,
-      content: {
-        blocks: [
-          {
-            id: "hero-1",
-            type: "hero",
-            content: {
-              title: "Welcome to Our School",
-              subtitle: "Providing quality education for tomorrow's leaders",
-              buttonText: "Learn More"
-            },
-            styles: {},
-            sortOrder: 0
-          }
-        ]
-      }
+      content: {}, // Empty content, blocks will be created separately
     },
     {
       schoolId,
@@ -191,19 +186,7 @@ async function createDefaultPages(schoolId: string, userId: string) {
       showInNavigation: true,
       accessLevel: "public",
       createdBy: userId,
-      content: {
-        blocks: [
-          {
-            id: "text-1",
-            type: "text",
-            content: {
-              html: "<h2>About Our School</h2><p>Learn about our school's history, mission, and values.</p>"
-            },
-            styles: {},
-            sortOrder: 0
-          }
-        ]
-      }
+      content: {}, // Empty content, blocks will be created separately
     },
     {
       schoolId,
@@ -215,28 +198,68 @@ async function createDefaultPages(schoolId: string, userId: string) {
       showInNavigation: true,
       accessLevel: "public",
       createdBy: userId,
-      content: { blocks: [] }
+      content: {}, // Empty content, blocks will be created separately
     }
   ];
 
+  // Insert pages first
   const createdPages = await db.insert(websitePages).values(defaultPages).returning();
   
-  // Create blocks for each page
+  // Then create blocks for each page
   for (const page of createdPages) {
-  const pageContent = defaultPages.find(p => p.slug === page.slug);
-  if (pageContent?.content?.blocks && pageContent.content.blocks.length > 0) {
-    await db.insert(websiteBlocks).values(
-      pageContent.content.blocks.map((block: any) => ({
-        pageId: page.id,
-        schoolId,
-        blockType: block.type,
-        content: block.content,
-        styles: block.styles,
-        sortOrder: block.sortOrder,
-      }))
-    );
+    let blocksToCreate: Block[] = [];
+    
+    if (page.slug === "/") {
+      // Home page blocks
+      blocksToCreate = [
+        {
+          pageId: page.id,
+          schoolId,
+          blockType: "hero-welcome",
+          content: {
+            title: "Welcome to Our School",
+            subtitle: "Providing quality education for tomorrow's leaders",
+            description: "We provide quality education that prepares students for success in an ever-changing world.",
+            buttonText: "Learn More",
+            buttonUrl: "/about",
+            backgroundImage: "",
+            backgroundColor: "#1e40af"
+          },
+          styles: {
+            textAlign: "center",
+            padding: "4rem 2rem",
+            color: "white"
+          },
+          sortOrder: 0,
+          isVisible: true,
+        }
+      ];
+    } else if (page.slug === "/about") {
+      // About page blocks
+      blocksToCreate = [
+        {
+          pageId: page.id,
+          schoolId,
+          blockType: "text",
+          content: {
+            html: "<h2>About Our School</h2><p>Learn about our school's history, mission, and values. We are committed to providing quality education and nurturing the next generation of leaders.</p>"
+          },
+          styles: {
+            padding: "2rem",
+            maxWidth: "800px",
+            margin: "0 auto"
+          },
+          sortOrder: 0,
+          isVisible: true,
+        }
+      ];
+    }
+
+    // Insert blocks if there are any
+    if (blocksToCreate.length > 0) {
+      await db.insert(websiteBlocks).values(blocksToCreate);
+    }
   }
-}
 
   return createdPages;
 }

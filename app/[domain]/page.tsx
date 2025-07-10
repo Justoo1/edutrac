@@ -47,8 +47,24 @@ async function getSchoolByDomain(domain: string) {
   return school;
 }
 
+// async function getSchoolPages(schoolId: string) {
+//   return await db.query.websitePages.findMany({
+//     where: and(
+//       eq(websitePages.schoolId, schoolId),
+//       eq(websitePages.isPublished, true)
+//     ),
+//     with: {
+//       blocks: {
+//         where: eq(websiteBlocks.isVisible, true),
+//         orderBy: (blocks, { asc }) => [asc(blocks.sortOrder)],
+//       },
+//     },
+//     orderBy: (pages, { asc }) => [asc(pages.sortOrder)],
+//   });
+// }
+
 async function getSchoolPages(schoolId: string) {
-  return await db.query.websitePages.findMany({
+  const pages = await db.query.websitePages.findMany({
     where: and(
       eq(websitePages.schoolId, schoolId),
       eq(websitePages.isPublished, true)
@@ -61,6 +77,15 @@ async function getSchoolPages(schoolId: string) {
     },
     orderBy: (pages, { asc }) => [asc(pages.sortOrder)],
   });
+
+  // Transform blockType to type in blocks
+  return pages.map(page => ({
+    ...page,
+    blocks: page.blocks.map(({ blockType, ...block }) => ({
+      ...block,
+      type: blockType,
+    })),
+  }));
 }
 
 export default async function SchoolPage({ params, searchParams }: SchoolPageProps) {

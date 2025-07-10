@@ -1,39 +1,48 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { 
-  X, 
-  ExternalLink, 
-  Smartphone,
-  Tablet,
-  Monitor,
-  Eye
-} from "lucide-react";
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { X, Monitor, Tablet, Smartphone } from 'lucide-react';
+import { Block, BlockRenderer } from '@/components/website-editor/blocks';
 
-interface Block {
-  id: string;
-  type: string;
-  content: any;
-  styles: any;
-  sortOrder: number;
-}
 
 interface WebsitePreviewProps {
   blocks: Block[];
   isOpen: boolean;
   onClose: () => void;
-  pageTitle?: string;
+  pageTitle: string;
+  viewport?: 'desktop' | 'tablet' | 'mobile';
+  config?: any;
 }
 
-const PreviewBlockRenderer = ({ block }: { block: Block }) => {
+export function WebsitePreview({ 
+  blocks, 
+  isOpen, 
+  onClose, 
+  pageTitle,
+  viewport = 'desktop',
+  config 
+}: WebsitePreviewProps) {
+  const [currentViewport, setCurrentViewport] = React.useState(viewport);
+  
+  const siteName = config?.siteName || 'School Website';
+  const tagline = config?.tagline;
+
+  const getViewportWidth = () => {
+    switch (currentViewport) {
+      case 'mobile': return '375px';
+      case 'tablet': return '768px';
+      default: return '100%';
+    }
+  };
+
   const getBlockStyles = (block: Block) => {
     const styles: React.CSSProperties = {};
     
-    // Apply common styling
     if (block.styles?.backgroundColor) {
       styles.backgroundColor = block.styles.backgroundColor;
     }
@@ -42,6 +51,7 @@ const PreviewBlockRenderer = ({ block }: { block: Block }) => {
     }
     if (block.styles?.padding) {
       const paddingMap = {
+        none: '0',
         small: '1rem',
         medium: '2rem',
         large: '3rem',
@@ -69,568 +79,148 @@ const PreviewBlockRenderer = ({ block }: { block: Block }) => {
     return styles;
   };
 
-  const renderBlockContent = () => {
-    const blockStyles = getBlockStyles(block);
-    
-    switch (block.type) {
-      case 'section':
-        return (
-          <section style={blockStyles} className="w-full">
-            {/* In preview, sections are invisible containers */}
-          </section>
-        );
+  const renderBlock = (block: Block) => {
+    if (block.isVisible === false) return null;
 
-      case 'container':
-        return (
-          <div style={blockStyles} className="container mx-auto px-4">
-            {/* In preview, containers are invisible containers */}
-          </div>
-        );
-
-      case 'columns':
-        const columns = parseInt(block.styles?.columns || '2');
-        const gap = block.styles?.gap || 'medium';
-        const gapMap = { small: '1rem', medium: '2rem', large: '3rem' };
-        
-        return (
-          <div style={{
-            ...blockStyles, 
-            display: 'grid', 
-            gridTemplateColumns: `repeat(${columns}, 1fr)`, 
-            gap: gapMap[gap as keyof typeof gapMap] || '2rem'
-          }}>
-            {/* In preview, columns are invisible containers */}
-          </div>
-        );
-
-      case 'hero':
-        return (
-          <div style={{
-            ...blockStyles,
-            backgroundImage: block.content?.backgroundImage ? `url(${block.content.backgroundImage})` : undefined,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            position: 'relative'
-          }} className="text-white py-20 px-8 text-center">
-            {!block.content?.backgroundImage && (
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600"></div>
-            )}
-            <div className="relative z-10">
-              <h1 className="text-5xl font-bold mb-6">
-                {block.content?.title || "Welcome to Our School"}
-              </h1>
-              <p className="text-xl mb-8 max-w-2xl mx-auto">
-                {block.content?.subtitle || "Providing quality education since 1990"}
-              </p>
-              <Button 
-                size="lg" 
-                variant="secondary"
-                style={{ backgroundColor: block.styles?.buttonColor }}
-                onClick={() => block.content?.buttonLink && window.open(block.content.buttonLink, '_blank')}
-              >
-                {block.content?.buttonText || "Learn More"}
-              </Button>
-            </div>
-          </div>
-        );
-
-      case 'text':
-        return (
-          <div style={blockStyles} className="prose max-w-none">
-            <div 
-              style={{
-                fontSize: block.styles?.fontSize === 'small' ? '0.875rem' :
-                         block.styles?.fontSize === 'large' ? '1.25rem' :
-                         block.styles?.fontSize === 'extra-large' ? '1.5rem' : '1rem'
-              }}
-              dangerouslySetInnerHTML={{ 
-                __html: block.content?.html || "<p>Add your text content here...</p>" 
-              }} 
-            />
-          </div>
-        );
-
-      case 'image':
-        const imageSize = block.styles?.imageSize || 'auto';
-        const imageSizeMap = {
-          small: { maxWidth: '300px' },
-          medium: { maxWidth: '500px' },
-          large: { maxWidth: '700px' },
-          full: { width: '100%' },
-          auto: { maxWidth: '100%', height: 'auto' }
-        };
-        
-        const alignment = block.styles?.alignment || 'center';
-        const alignmentMap = {
-          left: { textAlign: 'left' as const },
-          center: { textAlign: 'center' as const },
-          right: { textAlign: 'right' as const }
-        };
-
-        const borderRadius = block.styles?.borderRadius || 'none';
-        const borderRadiusMap = {
-          none: '0',
-          small: '0.25rem',
-          medium: '0.5rem',
-          large: '1rem',
-          full: '50%'
-        };
-
-        const shadow = block.styles?.shadow || 'none';
-        const shadowMap = {
-          none: 'none',
-          small: '0 1px 3px rgba(0,0,0,0.12)',
-          medium: '0 4px 6px rgba(0,0,0,0.1)',
-          large: '0 10px 15px rgba(0,0,0,0.1)'
-        };
-
-        return (
-          <div style={{...blockStyles, ...alignmentMap[alignment as keyof typeof alignmentMap]}}>
-            {block.content?.src ? (
-              <div>
-                {block.content?.link ? (
-                  <a href={block.content.link} target="_blank" rel="noopener noreferrer">
-                    <img 
-                      src={block.content.src} 
-                      alt={block.content.alt || ""} 
-                      style={{
-                        ...imageSizeMap[imageSize as keyof typeof imageSizeMap],
-                        borderRadius: borderRadiusMap[borderRadius as keyof typeof borderRadiusMap],
-                        boxShadow: shadowMap[shadow as keyof typeof shadowMap],
-                        display: alignment === 'center' ? 'block' : 'inline-block',
-                        margin: alignment === 'center' ? '0 auto' : undefined
-                      }}
-                    />
-                  </a>
-                ) : (
-                  <img 
-                    src={block.content.src} 
-                    alt={block.content.alt || ""} 
-                    style={{
-                      ...imageSizeMap[imageSize as keyof typeof imageSizeMap],
-                      borderRadius: borderRadiusMap[borderRadius as keyof typeof borderRadiusMap],
-                      boxShadow: shadowMap[shadow as keyof typeof shadowMap],
-                      display: alignment === 'center' ? 'block' : 'inline-block',
-                      margin: alignment === 'center' ? '0 auto' : undefined
-                    }}
-                  />
-                )}
-                {block.content?.caption && (
-                  <p className="text-sm text-gray-600 mt-2">{block.content.caption}</p>
-                )}
-              </div>
-            ) : (
-              <div className="bg-gray-100 border border-gray-300 rounded-lg p-8 text-center text-gray-500">
-                <p>No image configured</p>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'gallery':
-        const galleryColumns = parseInt(block.styles?.columns || '3');
-        const galleryGap = block.styles?.gap || 'medium';
-        const galleryGapMap = { small: '0.5rem', medium: '1rem', large: '1.5rem' };
-        const aspectRatio = block.styles?.aspectRatio || 'auto';
-        
-        const aspectRatioStyles = {
-          auto: {},
-          square: { aspectRatio: '1 / 1', objectFit: 'cover' as const },
-          landscape: { aspectRatio: '16 / 9', objectFit: 'cover' as const },
-          portrait: { aspectRatio: '3 / 4', objectFit: 'cover' as const }
-        };
-
-        return (
-          <div style={blockStyles}>
-            {block.content?.title && (
-              <h3 className="text-2xl font-bold mb-6 text-center">{block.content.title}</h3>
-            )}
-            {block.content?.images && block.content.images.length > 0 ? (
-              <div 
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${galleryColumns}, 1fr)`,
-                  gap: galleryGapMap[galleryGap as keyof typeof galleryGapMap] || '1rem'
-                }}
-              >
-                {block.content.images.map((imageUrl: string, index: number) => (
-                  <div key={index} className="overflow-hidden rounded-lg">
-                    <img 
-                      src={imageUrl} 
-                      alt={`Gallery image ${index + 1}`}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        ...aspectRatioStyles[aspectRatio as keyof typeof aspectRatioStyles]
-                      }}
-                      className="transition-transform hover:scale-105"
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-gray-100 border border-gray-300 rounded-lg p-8 text-center text-gray-500">
-                <p>No gallery images configured</p>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'video':
-        const videoSize = block.styles?.videoSize || 'medium';
-        const videoSizeMap = {
-          small: { maxWidth: '400px' },
-          medium: { maxWidth: '600px' },
-          large: { maxWidth: '800px' },
-          full: { width: '100%' }
-        };
-        
-        const videoAlignment = block.styles?.alignment || 'center';
-        const videoAlignmentMap = {
-          left: { textAlign: 'left' as const },
-          center: { textAlign: 'center' as const },
-          right: { textAlign: 'right' as const }
-        };
-
-        const getEmbedUrl = (url: string) => {
-          if (url.includes('youtube.com/watch')) {
-            const videoId = url.split('v=')[1]?.split('&')[0];
-            return `https://www.youtube.com/embed/${videoId}`;
-          } else if (url.includes('youtu.be/')) {
-            const videoId = url.split('youtu.be/')[1]?.split('?')[0];
-            return `https://www.youtube.com/embed/${videoId}`;
-          } else if (url.includes('vimeo.com/')) {
-            const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
-            return `https://player.vimeo.com/video/${videoId}`;
-          }
-          return url;
-        };
-
-        return (
-          <div style={{...blockStyles, ...videoAlignmentMap[videoAlignment as keyof typeof videoAlignmentMap]}}>
-            {block.content?.title && (
-              <h3 className="text-2xl font-bold mb-4">{block.content.title}</h3>
-            )}
-            {block.content?.videoUrl ? (
-              <div style={videoSizeMap[videoSize as keyof typeof videoSizeMap]}>
-                <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-                  <iframe
-                    src={getEmbedUrl(block.content.videoUrl)}
-                    className="absolute inset-0 w-full h-full rounded-lg"
-                    allowFullScreen
-                    title={block.content?.title || 'Video'}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="bg-gray-100 border border-gray-300 rounded-lg p-8 text-center text-gray-500">
-                <p>No video configured</p>
-              </div>
-            )}
-            {block.content?.description && (
-              <p className="text-gray-600 mt-4">{block.content.description}</p>
-            )}
-          </div>
-        );
-
-      case 'contact':
-        const formWidth = block.styles?.formWidth || 'medium';
-        const formWidthMap = {
-          small: { maxWidth: '400px' },
-          medium: { maxWidth: '600px' },
-          large: { maxWidth: '800px' },
-          full: { width: '100%' }
-        };
-
-        return (
-          <div style={blockStyles}>
-            <div style={{...formWidthMap[formWidth as keyof typeof formWidthMap], margin: '0 auto'}}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>{block.content?.title || "Contact Us"}</CardTitle>
-                  {block.content?.subtitle && (
-                    <p className="text-gray-600">{block.content.subtitle}</p>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {(!block.content?.fields || block.content.fields.name !== false) && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <Input placeholder="First Name" />
-                      <Input placeholder="Last Name" />
-                    </div>
-                  )}
-                  {(!block.content?.fields || block.content.fields.email !== false) && (
-                    <Input placeholder="Email" type="email" />
-                  )}
-                  {block.content?.fields?.phone && (
-                    <Input placeholder="Phone" type="tel" />
-                  )}
-                  {(!block.content?.fields || block.content.fields.subject !== false) && (
-                    <Input placeholder="Subject" />
-                  )}
-                  {(!block.content?.fields || block.content.fields.message !== false) && (
-                    <Textarea placeholder="Message" rows={4} />
-                  )}
-                  <Button 
-                    style={{ backgroundColor: block.styles?.buttonColor }}
-                    className="w-full"
-                  >
-                    {block.content?.submitText || "Send Message"}
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        );
-
-      case 'stats':
-        const statsColumns = parseInt(block.styles?.columns || '4');
-        return (
-          <div style={blockStyles}>
-            {block.content?.stats && block.content.stats.length > 0 ? (
-              <div 
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${statsColumns}, 1fr)`,
-                  gap: '2rem'
-                }}
-              >
-                {block.content.stats.map((stat: any, index: number) => (
-                  <div key={index} className="text-center">
-                    <div 
-                      className="text-4xl font-bold mb-2"
-                      style={{ color: block.styles?.numberColor }}
-                    >
-                      {stat.number}
-                    </div>
-                    <div 
-                      className="text-lg"
-                      style={{ color: block.styles?.labelColor }}
-                    >
-                      {stat.label}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-gray-500 py-8">
-                <p>No statistics configured</p>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'testimonials':
-        const testimonialColumns = parseInt(block.styles?.columns || '2');
-        return (
-          <div style={blockStyles}>
-            {block.content?.title && (
-              <h2 className="text-3xl font-bold text-center mb-8">{block.content.title}</h2>
-            )}
-            {block.content?.testimonials && block.content.testimonials.length > 0 ? (
-              <div 
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${testimonialColumns}, 1fr)`,
-                  gap: '2rem'
-                }}
-              >
-                {block.content.testimonials.map((testimonial: any, index: number) => (
-                  <Card key={index} style={{ backgroundColor: block.styles?.cardBackground }}>
-                    <CardContent className="p-6">
-                      <p className="text-lg mb-4 italic">&quot;{testimonial.text}&quot;</p>
-                      <div className="flex items-center gap-3">
-                        {testimonial.image && (
-                          <img 
-                            src={testimonial.image} 
-                            alt={testimonial.author}
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                        )}
-                        <div>
-                          <p className="font-semibold">{testimonial.author}</p>
-                          <p className="text-sm text-gray-600">{testimonial.role}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-gray-500 py-8">
-                <p>No testimonials configured</p>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'team':
-        const teamColumns = parseInt(block.styles?.columns || '3');
-        return (
-          <div style={blockStyles}>
-            {block.content?.title && (
-              <h2 className="text-3xl font-bold text-center mb-8">{block.content.title}</h2>
-            )}
-            {block.content?.members && block.content.members.length > 0 ? (
-              <div 
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${teamColumns}, 1fr)`,
-                  gap: '2rem'
-                }}
-              >
-                {block.content.members.map((member: any, index: number) => (
-                  <Card key={index} style={{ backgroundColor: block.styles?.cardBackground }}>
-                    <CardContent className="p-6 text-center">
-                      {member.image && (
-                        <img 
-                          src={member.image} 
-                          alt={member.name}
-                          className="w-24 h-24 rounded-full object-cover mx-auto mb-4"
-                        />
-                      )}
-                      <h3 className="text-xl font-semibold mb-2">{member.name}</h3>
-                      <p className="text-blue-600 font-medium mb-3">{member.role}</p>
-                      <p className="text-gray-600 text-sm mb-3">{member.bio}</p>
-                      {member.email && (
-                        <a 
-                          href={`mailto:${member.email}`}
-                          className="text-blue-600 hover:underline text-sm"
-                        >
-                          {member.email}
-                        </a>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-gray-500 py-8">
-                <p>No team members configured</p>
-              </div>
-            )}
-          </div>
-        );
-
-      case 'announcement':
-        return (
-          <div style={blockStyles}>
-            {block.content?.title && (
-              <h2 className="text-3xl font-bold text-center mb-8">{block.content.title}</h2>
-            )}
-            <div className="text-center text-gray-500 py-8">
-              <p>Announcements will be populated from your school&pos;s announcement system</p>
-            </div>
-          </div>
-        );
-
-      default:
-        return null;
-    }
+    return <BlockRenderer key={block.id} block={block} />
   };
 
-  return <>{renderBlockContent()}</>;
-};
-
-export function WebsitePreview({ blocks, isOpen, onClose, pageTitle }: WebsitePreviewProps) {
-  const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
-
-  const getViewportWidth = () => {
-    switch (viewport) {
-      case 'mobile': return '375px';
-      case 'tablet': return '768px';
-      default: return '100%';
-    }
-  };
-
-  const getViewportHeight = () => {
-    switch (viewport) {
-      case 'mobile': return '667px';
-      case 'tablet': return '1024px';
-      default: return '100vh';
-    }
-  };
+  const sortedBlocks = [...blocks].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full h-full max-w-7xl max-h-full flex flex-col">
-        {/* Preview Header */}
-        <div className="flex items-center justify-between p-4 border-b bg-gray-50">
-          <div className="flex items-center gap-4">
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Eye className="h-5 w-5" />
-              Preview: {pageTitle || 'Untitled Page'}
-            </h2>
-            
-            {/* Viewport Controls */}
-            <div className="flex items-center gap-1 bg-white rounded-lg p-1 border">
-              <Button
-                variant={viewport === 'desktop' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewport('desktop')}
-              >
-                <Monitor className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewport === 'tablet' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewport('tablet')}
-              >
-                <Tablet className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewport === 'mobile' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewport('mobile')}
-              >
-                <Smartphone className="h-4 w-4" />
-              </Button>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-full h-full p-0 m-0 overflow-auto">
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b bg-white sticky top-0 z-50">
+            <div className="flex items-center gap-4">
+              <DialogHeader>
+                <DialogTitle>Preview: {pageTitle}</DialogTitle>
+              </DialogHeader>
+              
+              {/* Viewport Controls */}
+              <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                <Button
+                  variant={currentViewport === 'desktop' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setCurrentViewport('desktop')}
+                >
+                  <Monitor className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={currentViewport === 'tablet' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setCurrentViewport('tablet')}
+                >
+                  <Tablet className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={currentViewport === 'mobile' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setCurrentViewport('mobile')}
+                >
+                  <Smartphone className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open in New Tab
-            </Button>
+            
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
           </div>
-        </div>
 
-        {/* Preview Content */}
-        <div className="flex-1 overflow-auto bg-gray-100 p-6">
-          <div 
-            className="mx-auto bg-white shadow-lg transition-all duration-200 overflow-auto"
-            style={{ 
-              width: getViewportWidth(), 
-              height: viewport !== 'desktop' ? getViewportHeight() : 'auto',
-              minHeight: viewport === 'desktop' ? '100vh' : 'auto'
-            }}
-          >
-            {blocks.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                <div className="text-center">
-                  <Eye className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <h3 className="text-lg font-medium mb-2">No Content to Preview</h3>
-                  <p>Add some blocks to see the preview</p>
+          {/* Preview Content */}
+          <div className="flex-1 overflow-auto bg-gray-100 p-4">
+            <div 
+              className="mx-auto bg-white shadow-lg transition-all duration-200 min-h-full"
+              style={{ width: getViewportWidth() }}
+            >
+              {/* Header */}
+              <header className="bg-white shadow-sm border-b">
+                <div className="container mx-auto px-4">
+                  <div className="flex items-center justify-between py-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-blue-500 rounded"></div>
+                      <div>
+                        <h1 className="text-xl font-bold text-gray-900">{siteName}</h1>
+                        {tagline && (
+                          <p className="text-sm text-gray-600">{tagline}</p>
+                        )}
+                      </div>
+                    </div>
+                    <nav className="hidden md:flex space-x-8">
+                      <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors">Home</a>
+                      <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors">About</a>
+                      <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors">Programs</a>
+                      <a href="#" className="text-gray-700 hover:text-blue-600 transition-colors">Contact</a>
+                    </nav>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div>
-                {blocks
-                  .sort((a, b) => a.sortOrder - b.sortOrder)
-                  .map((block) => (
-                    <PreviewBlockRenderer key={block.id} block={block} />
-                  ))}
-              </div>
-            )}
+              </header>
+
+              {/* Main Content */}
+              <main>
+                {sortedBlocks.length > 0 ? (
+                  sortedBlocks.map(renderBlock)
+                ) : (
+                  <section className="py-20">
+                    <div className="container mx-auto px-4 text-center">
+                      <h1 className="text-4xl font-bold text-gray-900 mb-6">
+                        Welcome to {siteName}
+                      </h1>
+                      {tagline && (
+                        <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+                          {tagline}
+                        </p>
+                      )}
+                      <p className="text-gray-600 max-w-3xl mx-auto">
+                        Start adding blocks to create your website content.
+                      </p>
+                    </div>
+                  </section>
+                )}
+              </main>
+
+              {/* Footer */}
+              <footer className="bg-gray-900 text-white py-12">
+                <div className="container mx-auto px-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">{siteName}</h3>
+                      <p className="text-gray-300">
+                        Quality education for tomorrow&apos;s leaders
+                      </p>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Contact</h3>
+                      <div className="space-y-2 text-gray-300">
+                        <p>Email: info@school.edu</p>
+                        <p>Phone: +233 XX XXX XXXX</p>
+                        <p>Address: School Address</p>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+                      <ul className="space-y-2">
+                        <li><a href="#" className="text-gray-300 hover:text-white">Home</a></li>
+                        <li><a href="#" className="text-gray-300 hover:text-white">About</a></li>
+                        <li><a href="#" className="text-gray-300 hover:text-white">Programs</a></li>
+                        <li><a href="#" className="text-gray-300 hover:text-white">Contact</a></li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+                    <p>© {new Date().getFullYear()} {siteName}. All rights reserved.</p>
+                    <p className="mt-2 text-sm">Powered by EduTrac</p>
+                  </div>
+                </div>
+              </footer>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
