@@ -81,7 +81,7 @@ export default function Nav({ children }: { children: ReactNode }) {
       return [
         {
           name: "Back to All Sites",
-          href: "/schools",
+          href: "/website",
           icon: <ArrowLeft width={18} />,
         },
         {
@@ -107,7 +107,7 @@ export default function Nav({ children }: { children: ReactNode }) {
       return [
         {
           name: "Back to All Posts",
-          href: siteId ? `/school/${siteId}` : "/schools",
+          href: siteId ? `/school/${siteId}` : "/website",
           icon: <ArrowLeft width={18} />,
         },
         {
@@ -133,7 +133,7 @@ export default function Nav({ children }: { children: ReactNode }) {
       },
       {
         name: "Sites",
-        href: "/schools",
+        href: "/website",
         isActive: segments[0] === "sites",
         icon: <Globe width={18} />,
       },

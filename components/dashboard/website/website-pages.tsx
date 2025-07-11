@@ -182,6 +182,29 @@ export function WebsitePages({ schoolId }: WebsitePagesProps) {
           }
         : page
     ));
+    let pageData = pages.find(p => p.id === pageId);
+    if (!pageData) {
+      toast.error('Page not found');
+      return;
+    }
+    if (pageData.isPublished) {
+      pageData = {
+        ...pageData,
+        publishedAt :new Date().toISOString()
+      }
+    }
+    const response = await fetch(`/api/website/pages/${pageId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(pageData),
+    });
+    if (response.ok) {
+      toast.success('Page published successfully!');
+    } else {
+      toast.error('Failed to publish page');
+    }
   };
 
   const getPageStatusBadge = (page: WebsitePage) => {
@@ -352,7 +375,7 @@ export function WebsitePages({ schoolId }: WebsitePagesProps) {
                       </Button>
                     )}
                     
-                    <Button
+                    {/* <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleTogglePublish(page.id)}
@@ -364,7 +387,7 @@ export function WebsitePages({ schoolId }: WebsitePagesProps) {
                       ) : (
                         <Globe className="h-4 w-4" />
                       )}
-                    </Button>
+                    </Button> */}
                     
                     {!page.isHomePage && (
                       <Button

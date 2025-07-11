@@ -24,7 +24,7 @@ export default function DeleteSiteForm({ siteName, school }: { siteName: string,
           } else {
             va.track("Deleted Site");
             router.refresh();
-            router.push("/schools");
+            router.push("/website");
             toast.success(`Successfully deleted site!`);
           }
         } catch (err) {

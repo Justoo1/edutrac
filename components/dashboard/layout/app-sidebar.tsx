@@ -121,8 +121,8 @@ export function AppSidebar({ school }: AppSidebarProps) {
       icon: UserCircle2,
     },
     {
-      title: "School",
-      href: "/schools",
+      title: "Websites",
+      href: "/website",
       icon: School,
     },
     {
