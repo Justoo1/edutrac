@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { TeacherForm } from "@/components/dashboard/teachers/teacher-form"
-import { db } from "@/lib/db"
+import db from "@/lib/db"
 import { staff } from "@/lib/schema"
 import { eq } from "drizzle-orm"
 

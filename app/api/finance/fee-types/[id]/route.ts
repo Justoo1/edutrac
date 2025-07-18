@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import db from "@/lib/db";
 import { feeTypes } from "@/lib/schema";
 import { getServerSession } from "next-auth";
 import { eq } from "drizzle-orm";
