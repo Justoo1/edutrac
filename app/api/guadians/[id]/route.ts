@@ -34,7 +34,7 @@ export async function GET(
 
     // Get associated students
     const relations = await db.query.guardianStudents.findMany({
-      where: (guardianStudents, { eq }) => eq(guardianStudents.guardianId, id),
+      where: (guardianStudents, { eq }) => eq(guardianStudents.guardianId, guardian.id),
       with: {
         student: {
           columns: {
@@ -42,6 +42,9 @@ export async function GET(
             firstName: true,
             lastName: true,
             studentId: true,
+            schoolId: true
+          },
+          with: {
             batchEnrollments: {
               with: {
                 batch: {

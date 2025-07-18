@@ -6,7 +6,7 @@ import { students, batches, batchEnrollments, schools } from "@/lib/schema";
 
 export async function GET(
   req: Request,
-  { params }: { params: { batchId: string } }
+  { params }: { params: Promise<{ batchId: string }> }
 ) {
   try {
     const session = await getSession();
@@ -14,7 +14,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const batchId = params.batchId;
+    const { batchId } = await params;
     if (!batchId) {
       return NextResponse.json(
         { error: "Batch ID is required" },
@@ -80,7 +80,7 @@ export async function GET(
 
 export async function POST(
   req: Request,
-  { params }: { params: { batchId: string } }
+  { params }: { params: Promise<{ batchId: string }> }
 ) {
   try {
     const session = await getSession();
@@ -88,7 +88,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const batchId = params.batchId;
+    const { batchId } = await params;
     if (!batchId) {
       return NextResponse.json(
         { error: "Batch ID is required" },

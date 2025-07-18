@@ -183,10 +183,8 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    console.log({searchParams})
     const schoolId = searchParams.get('schoolId');
     const status = searchParams.get('status')
-    console.log({status})
     if (!schoolId) {
       return NextResponse.json({ error: 'School ID is required' }, { status: 400 });
     }

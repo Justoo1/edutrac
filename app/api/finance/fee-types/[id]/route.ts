@@ -6,13 +6,15 @@ import { eq } from "drizzle-orm";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession();
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const { id } = await params;
 
     const body = await request.json();
     const {
@@ -41,7 +43,7 @@ export async function PUT(
         dueDate: dueDate ? new Date(dueDate) : null,
         updatedAt: new Date()
       })
-      .where(eq(feeTypes.id, params.id))
+      .where(eq(feeTypes.id, id))
       .returning();
 
     if (!updatedFeeType.length) {
@@ -61,7 +63,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession();
@@ -69,9 +71,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { id } = await params;
+    
     const deletedFeeType = await db
       .delete(feeTypes)
-      .where(eq(feeTypes.id, params.id))
+      .where(eq(feeTypes.id, id))
       .returning();
 
     if (!deletedFeeType.length) {

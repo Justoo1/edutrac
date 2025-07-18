@@ -235,29 +235,31 @@ export async function GET(req: Request) {
     const enrichedGuardians = await Promise.all(
       guardiansData.map(async (guardian) => {
         const relations = await db.query.guardianStudents.findMany({
-          where: (guardianStudents, { eq }) => eq(guardianStudents.guardianId, guardian.id),
-          with: {
-            student: {
-              columns: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                studentId: true,
-                batchEnrollments: {
-                  with: {
-                    batch: {
-                      columns: {
-                        id: true,
-                        name: true,
-                        gradeLevel: true,
+            where: (guardianStudents, { eq }) => eq(guardianStudents.guardianId, guardian.id),
+            with: {
+              student: {
+                columns: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  studentId: true,
+                },
+                with: {
+                  batchEnrollments: {
+                    with: {
+                      batch: {
+                        columns: {
+                          id: true,
+                          name: true,
+                          gradeLevel: true,
+                        },
                       },
                     },
                   },
                 },
               },
             },
-          },
-        });
+          });
         
         const associatedStudents = relations.map(relation => ({
           ...relation.student,

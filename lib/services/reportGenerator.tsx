@@ -106,7 +106,10 @@ export async function generateStudentReport(
             ...subject,
             classScore: subject.classScore || 0,
             examScore: subject.examScore || 0,
-            totalScore: subject.totalScore || 0
+            totalScore: subject.totalScore || 0,
+            classPosition: Number(subject.classPosition) || undefined,
+            coursePosition: Number(subject.coursePosition) || undefined,
+            batchPosition: Number(subject.batchPosition) || undefined,
           }))}
           attendance={reportData.attendance || undefined}
           totalAverage={reportData.totalAverage || 0}

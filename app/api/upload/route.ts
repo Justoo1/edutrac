@@ -2,20 +2,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { nanoid } from "nanoid";
-import { getSession } from "@/lib/auth";
+// import { getSession } from "@/lib/auth";
 
 export const runtime = "edge";
 
 export async function POST(req: NextRequest) {
   try {
     // Check authentication
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    // const session = await getSession();
+    // if (!session) {
+    //   return NextResponse.json(
+    //     { error: "Unauthorized" },
+    //     { status: 401 }
+    //   );
+    // }
 
     // Create a FormData object from the incoming request
     const formData = await req.formData();

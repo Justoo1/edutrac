@@ -15,7 +15,9 @@ export async function GET() {
       where: eq(schools.adminId, session.user.id),
     });
 
-    if (!school) return [];
+    if (!school) {
+      return NextResponse.json([]);
+    }
 
     const batchesData = await db.query.batches.findMany({
       where: eq(batches.schoolId, school.id),

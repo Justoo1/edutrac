@@ -113,7 +113,8 @@ async function fetchReportData(schoolId: string, dateRange: { startDate: Date; e
     dateRange,
     reportType,
     schoolId,
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
+    summary: {}
   };
 
   // Calculate summary statistics
