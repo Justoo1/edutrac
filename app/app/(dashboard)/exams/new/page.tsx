@@ -83,21 +83,9 @@ export default function CreateExamPage() {
     startTime: "09:00",
     endTime: "11:00",
   });
-
-  if(!session){
-    redirect("/login");
-  }
-
-  if(!session.user.schoolId && session.user.role === "admin"){
-    redirect("/schools");
-  }
-  if(!session.user.schoolId && session.user.role !== "admin"){
-    return <div className="flex justify-center items-center h-screen">
-        <h1 className="text-2xl font-bold">Your School is not set, Ask your Admin to set it</h1>
-    </div>
-  }
-
+  
   useEffect(() => {
+    
     const fetchData = async () => {
       setIsDataLoading(true);
       try {
@@ -146,6 +134,19 @@ export default function CreateExamPage() {
       fetchData();
     }
   }, [session?.user.schoolId]);
+
+  if(!session){
+    redirect("/login");
+  }
+
+  if(!session.user.schoolId && session.user.role === "admin"){
+    redirect("/schools");
+  }
+  if(!session.user.schoolId && session.user.role !== "admin"){
+    return <div className="flex justify-center items-center h-screen">
+        <h1 className="text-2xl font-bold">Your School is not set, Ask your Admin to set it</h1>
+    </div>
+  }
 
   const handleStaffChange = (value: string) => {
     setFormData(prev => ({

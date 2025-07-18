@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, FileDown } from "lucide-react";
 import { toast } from "sonner";
+import { SelectExamStudent } from "@/lib/schema";
 
 interface ExamScoresExportModalProps {
   schoolId: string;
@@ -53,6 +54,7 @@ export default function ExamScoresExportModal({
     if (isOpen) {
       fetchInitialData();
     }
+    // eslint-disable-next-line
   }, [isOpen]);
   
   // Reset form when modal is closed
@@ -193,7 +195,7 @@ export default function ExamScoresExportModal({
   };
   
   // Generate CSV content for exams with exam IDs included
-  const generateExamScoresCSV = (data) => {
+  const generateExamScoresCSV = (data:any) => {
     // Create header rows with metadata
     const headerRows = [
       `Subject,${data.subjectName}`,
@@ -208,7 +210,7 @@ export default function ExamScoresExportModal({
     const marksRow = ['', '']; // This row contains total marks for each exam
     
     // Add each exam as a column with its ID
-    data.exams.forEach(exam => {
+    data.exams.forEach((exam:any) => {
       examHeaders.push(exam.name);
       idRow.push(exam.id); // Include exam ID for later reference
       marksRow.push(exam.totalMarks.toString());
@@ -222,8 +224,8 @@ export default function ExamScoresExportModal({
     const allStudentIds = new Set();
     const studentMap = new Map();
     
-    data.exams.forEach(exam => {
-      exam.students.forEach(student => {
+    data.exams.forEach((exam:any) => {
+      exam.students.forEach((student:any) => {
         if (!allStudentIds.has(student.id)) {
           allStudentIds.add(student.id);
           studentMap.set(student.id, {
@@ -255,7 +257,7 @@ export default function ExamScoresExportModal({
   };
   
   // Generate filename based on selected options
-  const getFilename = (data) => {
+  const getFilename = (data:any) => {
     const className = data.className.replace(/\s+/g, '_');
     const subjectName = data.subjectName.replace(/\s+/g, '_');
     const periodName = data.periodName.replace(/\s+/g, '_');
@@ -264,7 +266,7 @@ export default function ExamScoresExportModal({
   };
   
   // Helper function to download CSV
-  const downloadCSV = (filename, content) => {
+  const downloadCSV = (filename:any, content:any) => {
     const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

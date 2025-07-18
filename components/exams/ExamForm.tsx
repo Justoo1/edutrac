@@ -122,7 +122,7 @@ const CreateExamForm = ({
   classes,
   subjects,
   assessmentTypes,
-}: CreateExamFormProps) {
+}: CreateExamFormProps) => {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
@@ -510,7 +510,7 @@ const CreateExamForm = ({
                         Select specific students
                       </label>
                       <p className="text-sm text-muted-foreground">
-                        You'll be able to select which students will take this exam after creation
+                        You&apos;ll be able to select which students will take this exam after creation
                       </p>
                     </div>
                   </div>

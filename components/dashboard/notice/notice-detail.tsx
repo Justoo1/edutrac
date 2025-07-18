@@ -1,11 +1,12 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import Image from "next/image"
 
 export function NoticeDetail() {
   return (
     <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
       <div className="relative h-40 w-full overflow-hidden rounded-t-lg">
-        <img src="/placeholder.svg?height=160&width=500" alt="Students" className="h-full w-full object-cover" />
+        <Image src="/placeholder.svg?height=160&width=500" alt="Students" className="h-full w-full object-cover" />
       </div>
       <div className="p-6">
         <h2 className="text-xl font-bold">Welcome Back to School!</h2>
@@ -13,8 +14,8 @@ export function NoticeDetail() {
         <p className="mt-1 text-sm text-muted-foreground">August 1, 2024</p>
         <div className="mt-4 space-y-4">
           <p className="text-sm">
-            As we embark on another exciting academic year, let's embrace the opportunities that lie ahead. We're
-            thrilled to welcome new faces and reunite with returning students. Don't miss our opening assembly on August
+            As we embark on another exciting academic year, let&apos;s embrace the opportunities that lie ahead. We&apos;re
+            thrilled to welcome new faces and reunite with returning students. Don&apos;t miss our opening assembly on August
             5th!
           </p>
           <p className="text-sm">

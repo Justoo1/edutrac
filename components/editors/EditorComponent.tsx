@@ -1,6 +1,7 @@
 // components/editor/EditorComponents.tsx
 import React from 'react';
 import { Element, useNode } from '@craftjs/core';
+import Image from 'next/image';
 
 // Define specific types for controlled values
 type TextAlign = 'left' | 'center' | 'right' | 'justify';
@@ -167,7 +168,7 @@ export const ImageComponent = ({
   ...props 
 }: Partial<ImageComponentProps>) => {
   return (
-    <img
+    <Image
       {...props}
       src={src}
       alt={alt}

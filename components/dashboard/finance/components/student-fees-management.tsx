@@ -791,7 +791,7 @@ export function StudentFeesManagement() {
                   </Select>
                   {paymentForm.studentId && applicableFeeTypes.length === 0 && (
                     <p className="text-xs text-amber-600 mt-1">
-                      ⚠️ No applicable fees found for this student's grade level in the current academic period.
+                      ⚠️ No applicable fees found for this student&apos;s grade level in the current academic period.
                     </p>
                   )}
                   {applicableFeeTypes.length > 0 && (

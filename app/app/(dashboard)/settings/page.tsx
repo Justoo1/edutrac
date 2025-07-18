@@ -36,7 +36,7 @@ const SettingsPage = async () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold">School Setup</h1>
         <p className="text-muted-foreground mt-2">
-          Configure your school's information and academic settings
+          Configure your school&apos;s information and academic settings
         </p>
       </div>
 

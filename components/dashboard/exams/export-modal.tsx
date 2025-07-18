@@ -143,6 +143,7 @@ export default function ExportModal({
     if (selectedClassId && selectedSubjectId && selectedAcademicYear && selectedTermId && selectedStaffId) {
       fetchAvailableExams();
     }
+    // eslint-disable-next-line
   }, [selectedClassId, selectedSubjectId, selectedAcademicYear, selectedTermId, selectedStaffId]);
 
   // Fetch available exams
@@ -230,7 +231,7 @@ export default function ExportModal({
               examDate: format(new Date(exam.examDate), "yyyy-MM-dd"),
               totalMarks: exam.totalMarks,
               examTypeName,
-              students: exam.examStudents.map(es => ({
+              students: exam.examStudents.map((es: any) => ({
                 id: es.student?.id || es.studentId,
                 name: es.student ? `${es.student.firstName} ${es.student.lastName}` : "Unknown",
                 indexNumber: es.student?.studentId || ""
@@ -336,7 +337,7 @@ export default function ExportModal({
           let students = [];
           
           if (exam.examStudents && exam.examStudents.length > 0) {
-            students = exam.examStudents.map(es => ({
+            students = exam.examStudents.map((es: any) => ({
               id: es.student?.id || es.studentId,
               name: es.student ? `${es.student.firstName} ${es.student.lastName}` : "Unknown",
               indexNumber: es.student?.studentId || ""

@@ -41,18 +41,18 @@ export const SignatureSection: React.FC<SignatureSectionProps> = ({
     <View style={styles.signatureSection}>
       <View style={styles.signatureColumn}>
         <View style={styles.signatureLine}></View>
-        <Text>Class Teacher's Signature</Text>
+        <Text>Class Teacher&apos;s Signature</Text>
         {teacherName && <Text style={{ fontSize: 8 }}>({teacherName})</Text>}
       </View>
       <View style={styles.signatureColumn}>
         <View style={styles.signatureLine}></View>
-        <Text>Headmaster's Signature</Text>
+        <Text>Headmaster&apos;s Signature</Text>
         {headmasterName && <Text style={{ fontSize: 8 }}>({headmasterName})</Text>}
       </View>
       {showParentSignature && (
         <View style={styles.signatureColumn}>
           <View style={styles.signatureLine}></View>
-          <Text>Parent's Signature</Text>
+          <Text>Parent&apos;s Signature</Text>
         </View>
       )}
     </View>

@@ -127,6 +127,7 @@ export function ViewStudentRecords({ isOpen, onClose, studentId, schoolId, stude
     if (isOpen && studentId) {
       fetchStudentRecords()
     }
+    // eslint-disable-next-line
   }, [isOpen, studentId, schoolId])
 
   const handlePrint = useReactToPrint({
@@ -136,6 +137,10 @@ export function ViewStudentRecords({ isOpen, onClose, studentId, schoolId, stude
       console.log("Print completed")
     },
   })
+
+  const handlePrintClick = () => {
+  handlePrint();
+};
   
   const fetchStudentRecords = async () => {
     setLoading(true)
@@ -295,7 +300,7 @@ export function ViewStudentRecords({ isOpen, onClose, studentId, schoolId, stude
                       </div>
                       
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={handlePrint}>
+                        <Button size="sm" variant="outline" onClick={handlePrintClick}>
                           <FileText className="h-4 w-4 mr-2" />
                           Print
                         </Button>
@@ -579,7 +584,7 @@ export function ViewStudentRecords({ isOpen, onClose, studentId, schoolId, stude
         
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button onClick={handlePrint}>Print Report</Button>
+          <Button onClick={handlePrintClick}>Print Report</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

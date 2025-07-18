@@ -144,6 +144,7 @@ export function EnrollmentForm({ schoolId }: EnrollmentFormProps) {
     };
 
     fetchData();
+    /* eslint-disable react-hooks/exhaustive-deps */
   }, [schoolId, selectedClass]);
 
   // Define form with default values

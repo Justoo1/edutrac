@@ -435,6 +435,7 @@ export function FinancialReports({ schoolId = "test-school" }: FinancialReportsP
     if (schoolId) {
       fetchFilteredData(filters)
     }
+    // eslint-disable-next-line
   }, [schoolId, filters])
 
   // Apply filters

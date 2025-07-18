@@ -44,6 +44,7 @@ export default function ExamConfigurationSection({ schoolId, showButton = true }
 
   useEffect(() => {
     fetchConfiguration();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId]);
 
   const fetchConfiguration = async () => {

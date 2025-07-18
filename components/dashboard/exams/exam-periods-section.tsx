@@ -114,12 +114,14 @@ export default function ExamPeriodsSection({ schoolId, showButton = true }: Exam
   useEffect(() => {
     fetchAcademicYears();
     fetchPeriods();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (formData.academicYearId) {
       fetchAcademicTerms(formData.academicYearId);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.academicYearId]);
 
   const handleSubmit = async (e: React.FormEvent) => {

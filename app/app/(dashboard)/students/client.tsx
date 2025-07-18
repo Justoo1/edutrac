@@ -122,6 +122,7 @@ export default function StudentsPageClient({ schoolId }: StudentsPageProps) {
     } else {
       setIsLoading(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, allSearchQuery, allFilterValue, activeSearchQuery, activeFilterValue, graduatedSearchQuery, graduatedFilterValue, newSearchQuery, newFilterValue])
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {

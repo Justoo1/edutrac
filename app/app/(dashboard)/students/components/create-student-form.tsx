@@ -143,7 +143,7 @@ export function CreateStudentForm({ school }: { school: SelectSchool }) {
     <Card>
       <CardHeader>
         <CardTitle>Student Information</CardTitle>
-        <CardDescription>Enter the student's details below to add them to your school.</CardDescription>
+        <CardDescription>Enter the student&apos;s details below to add them to your school.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>

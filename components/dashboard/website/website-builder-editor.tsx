@@ -233,6 +233,7 @@ export function WebsiteBuilderEditor({ schoolId, pageId, userId }: WebsiteBuilde
       // For new pages or when no pageId, just set loading to false
       setIsLoading(false);
     }
+    // eslint-disable-next-line
   }, [pageId]);
 
   const loadPage = async () => {
@@ -289,6 +290,7 @@ export function WebsiteBuilderEditor({ schoolId, pageId, userId }: WebsiteBuilde
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line
   }, [showPreview]);
 
   const selectedBlock = blocks.find(block => block.id === selectedBlockId);

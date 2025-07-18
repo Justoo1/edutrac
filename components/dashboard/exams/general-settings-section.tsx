@@ -81,6 +81,7 @@ export default function GeneralSettingsSection({ schoolId }: GeneralSettingsSect
 
   useEffect(() => {
     fetchConfiguration();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId]);
 
   const fetchConfiguration = async () => {

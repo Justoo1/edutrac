@@ -103,6 +103,8 @@ export function StudentTable({
   // Fetch students data from API
   useEffect(() => {
     fetchStudents();
+    
+    // eslint-disable-next-line
   }, [schoolId, refreshTrigger]);
   
   // Helper function to safely parse dates with fallback

@@ -183,7 +183,7 @@ export const LiveChatBlock: React.FC<{ block: any }> = ({ block }) => {
                 </div>
                 <div>
                   <h3 className="font-semibold">School Support</h3>
-                  <p className="text-blue-100 text-sm">We're here to help</p>
+                  <p className="text-blue-100 text-sm">We&apos;re here to help</p>
                 </div>
                 <div className="ml-auto">
                   <div className="w-3 h-3 bg-green-400 rounded-full"></div>

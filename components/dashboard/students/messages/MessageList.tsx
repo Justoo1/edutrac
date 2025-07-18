@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Message } from "@/types/dashboard"
+import Image from "next/image"
 import Link from "next/link"
 
 // Sample data for messages
@@ -56,7 +57,7 @@ export function MessagesList() {
             <div key={message.id} className="flex gap-3 border-b pb-4 last:border-0 last:pb-0">
               <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden bg-gray-200">
                 {message.sender.avatar ? (
-                  <img 
+                  <Image 
                     src={message.sender.avatar} 
                     alt={message.sender.name} 
                     className="w-full h-full object-cover"

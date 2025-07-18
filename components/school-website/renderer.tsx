@@ -19,6 +19,7 @@ import {
   Zap
 } from "lucide-react";
 import { Block, BlockRenderer } from "../website-editor/blocks";
+import Image from "next/image";
 
 interface School {
   id: string;
@@ -134,7 +135,7 @@ export function SchoolWebsiteRenderer({
             {/* Logo and Site Name */}
             <div className="flex items-center space-x-3">
               {school.logo && (
-                <img 
+                <Image 
                   src={school.logo} 
                   alt={`${school.name} logo`}
                   className="h-10 w-auto"

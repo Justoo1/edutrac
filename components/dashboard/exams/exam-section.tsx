@@ -177,6 +177,7 @@ export default function ExamSection({ schoolId, upcoming, ongoing, completed, ar
   useEffect(() => {
     initExamStatusScheduler()
     fetchExams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId]);
 
 

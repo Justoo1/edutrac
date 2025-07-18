@@ -127,7 +127,6 @@ export function ClassroomDetailsDialog({
         const data = await response.json()
         console.log({data})
         setClassData(data)
-        console.log({classData})
       } catch (error) {
         console.error("Error fetching classroom details:", error)
         setError("Could not load classroom details. Please try again.")

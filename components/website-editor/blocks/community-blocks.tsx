@@ -2,6 +2,7 @@ import React from "react";
 import { Users, Star, Heart } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BlockType } from "./types";
+import Image from "next/image";
 
 // Staff Grid Block
 export const StaffGridBlock: React.FC<{ block: any }> = ({ block }) => {
@@ -44,7 +45,7 @@ export const StaffGridBlock: React.FC<{ block: any }> = ({ block }) => {
               <CardHeader className="pb-4">
                 <div className="w-24 h-24 bg-blue-100 rounded-full mx-auto mb-4 flex items-center justify-center overflow-hidden">
                   {member.image ? (
-                    <img 
+                    <Image
                       src={member.image} 
                       alt={member.name}
                       className="w-full h-full object-cover"
@@ -103,11 +104,11 @@ export const StudentTestimonialsBlock: React.FC<{ block: any }> = ({ block }) =>
                     <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
                   ))}
                 </div>
-                <p className="text-gray-700 mb-4 italic leading-relaxed">"{testimonial.text}"</p>
+                <p className="text-gray-700 mb-4 italic leading-relaxed">&quot;{testimonial.text}&quot;</p>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
                     {testimonial.image ? (
-                      <img 
+                      <Image 
                         src={testimonial.image} 
                         alt={testimonial.author}
                         className="w-full h-full object-cover"
@@ -162,11 +163,11 @@ export const ParentTestimonialsBlock: React.FC<{ block: any }> = ({ block }) => 
                     <Heart key={i} className="h-5 w-5 text-red-400 fill-current" />
                   ))}
                 </div>
-                <p className="text-gray-700 mb-4 italic leading-relaxed">"{testimonial.text}"</p>
+                <p className="text-gray-700 mb-4 italic leading-relaxed">&quot;{testimonial.text}&quot;</p>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center overflow-hidden">
                     {testimonial.image ? (
-                      <img 
+                      <Image
                         src={testimonial.image} 
                         alt={testimonial.author}
                         className="w-full h-full object-cover"

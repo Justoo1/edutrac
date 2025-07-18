@@ -123,25 +123,24 @@ export function StudentForm({ initialData, schoolId, onSuccess }: StudentFormPro
   });
 
   // Update the displayed month whenever the date of birth field changes
+  const dateOfBirth = form.watch("dateOfBirth");
   useEffect(() => {
-    if (form.watch("dateOfBirth")) {
-      setCalendarMonth(form.watch("dateOfBirth"));
+    if (dateOfBirth) {
+      setCalendarMonth(dateOfBirth);
     } else {
       setCalendarMonth(new Date()); // Reset to current month if date is cleared
     }
-  }, [form.watch("dateOfBirth")]);
+  }, [dateOfBirth]);
 
   async function onSubmit(data: StudentFormValues) {
     setIsSubmitting(true);
     
     try {
       // API endpoint depends on whether we're creating or updating
-      const endpoint = initialData?.id 
-        ? `/api/students/${initialData.id}` 
-        : "/api/students";
+      const endpoint = initialData?.studentId ? `/api/students/${initialData.studentId}` : "/api/students";
       
       const response = await fetch(endpoint, {
-        method: initialData?.id ? "PUT" : "POST",
+        method: initialData?.studentId ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
         },

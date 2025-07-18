@@ -65,6 +65,7 @@ export const BasicSchoolHeader: React.FC<BasicSchoolHeaderProps> = ({
       <View style={styles.header}>
         {showLogo && schoolInfo.logo && (
           <View style={styles.logoContainer}>
+            {/* eslint-disable-next-line  */}
             <Image src={schoolInfo.logo} style={styles.logo} />
           </View>
         )}

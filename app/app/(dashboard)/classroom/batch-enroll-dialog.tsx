@@ -356,7 +356,7 @@ export function BatchEnrollDialog({ children, school }: { children: React.ReactN
                         </SelectItem>
                       ) : filteredBatches.length === 0 ? (
                         <SelectItem value="no-batches" disabled>
-                          No matching batches for this class's grade level
+                          No matching batches for this class&apos;s grade level
                         </SelectItem>
                       ) : (
                         filteredBatches.map((batch) => (
@@ -400,7 +400,7 @@ export function BatchEnrollDialog({ children, school }: { children: React.ReactN
                   
                   {eligibleStudents.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
-                      No eligible students found. Students may already be enrolled in another class or don't match the grade level.
+                      No eligible students found. Students may already be enrolled in another class or don&apos;t match the grade level.
                     </p>
                   ) : (
                     <div className="max-h-40 overflow-y-auto border rounded-md p-2">
@@ -416,7 +416,7 @@ export function BatchEnrollDialog({ children, school }: { children: React.ReactN
                   
                   {eligibleStudents.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      Only students who aren't already enrolled in any class will be added.
+                      Only students who aren&apos;t already enrolled in any class will be added.
                     </p>
                   )}
                 </div>

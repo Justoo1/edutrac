@@ -46,7 +46,7 @@ const SubjectManager: React.FC<SubjectManagerProps> = ({
     };
 
     fetchSubjects();
-  }, []);
+  }, [schoolId]);
 
   const handleSubjectToggle = (subject: SelectSubject) => {
     const isSelected = selectedSubjects.some(s => s.id === subject.id);

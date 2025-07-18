@@ -41,6 +41,7 @@ export default function ExamTypesSection({ schoolId, showButton = true }: ExamTy
 
   useEffect(() => {
     fetchTypes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId]);
 
   const handleSubmit = async (e: React.FormEvent) => {

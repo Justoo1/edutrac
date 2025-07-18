@@ -90,6 +90,7 @@ export function WebsiteMedia({ schoolId }: WebsiteMediaProps) {
   const getFileIcon = (fileType: string) => {
     switch (fileType) {
       case 'image':
+        // eslint-disable-next-line
         return <Image className="h-5 w-5" />;
       case 'video':
         return <Video className="h-5 w-5" />;
@@ -157,6 +158,7 @@ export function WebsiteMedia({ schoolId }: WebsiteMediaProps) {
 
       <Card>
         <CardContent className="p-12 text-center">
+          {/* eslint-disable-next-line */}
           <Image className="h-12 w-12 mx-auto text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             No media files yet

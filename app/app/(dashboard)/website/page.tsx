@@ -163,6 +163,7 @@ export default async function WebsitePage() {
             Themes
           </TabsTrigger>
           <TabsTrigger value="media" className="flex items-center gap-2">
+            {/* eslint-disable-next-line */}
             <Image className="h-4 w-4" />
             Media
           </TabsTrigger>

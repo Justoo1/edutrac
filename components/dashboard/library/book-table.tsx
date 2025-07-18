@@ -2,6 +2,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { Edit, Trash, View } from "lucide-react"
+import Image from "next/image"
 
 export function BookTable() {
   const books = [
@@ -104,7 +105,7 @@ export function BookTable() {
               <TableCell>{book.id}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-3">
-                  <img
+                  <Image
                     src={book.cover || "/placeholder.svg"}
                     alt={book.name}
                     className="h-10 w-6 rounded border object-cover"

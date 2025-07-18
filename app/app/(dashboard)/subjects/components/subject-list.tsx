@@ -111,6 +111,7 @@ const SubjectList = ({ schoolType, schoolId, refreshTrigger = 0 }: SubjectListPr
   // Initial fetch and refresh when trigger changes
   useEffect(() => {
     fetchSubjects()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId, refreshTrigger])
 
   // Fetch batches

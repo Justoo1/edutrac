@@ -35,13 +35,13 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({ comments }) =>
     <View style={styles.commentSection}>
       {comments.teacherComment && (
         <>
-          <Text style={styles.commentLabel}>Class Teacher's Comment:</Text>
+          <Text style={styles.commentLabel}>Class Teacher&apos;s Comment:</Text>
           <Text style={styles.commentText}>{comments.teacherComment}</Text>
         </>
       )}
       {comments.headComment && (
         <>
-          <Text style={styles.commentLabel}>Headmaster's Comment:</Text>
+          <Text style={styles.commentLabel}>Headmaster&apos;s Comment:</Text>
           <Text style={styles.commentText}>{comments.headComment}</Text>
         </>
       )}

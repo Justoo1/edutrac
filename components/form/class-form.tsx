@@ -29,6 +29,7 @@ import {
 
 // Schema for validation
 const classSchema = z.object({
+  id: z.string().optional(),
   name: z.string().min(2, "Class name must have at least 2 characters"),
   gradeLevel: z.string().min(1, "Grade level is required"),
   section: z.string().optional(),
@@ -139,7 +140,7 @@ export function ClassForm({ initialData, schoolId }: ClassFormProps) {
                     <Input placeholder="Class name" {...field} />
                   </FormControl>
                   <FormDescription>
-                    A descriptive name for the class (e.g., "Primary 3 Science")
+                    A descriptive name for the class (e.g., &quot;Primary 3 Science&quot;).
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

@@ -110,6 +110,7 @@ export function PrintStudent({ isOpen, onClose, studentId, schoolId }: PrintStud
     if (isOpen && studentId) {
       fetchStudentData()
     }
+    // eslint-disable-next-line
   }, [isOpen, studentId, schoolId])
 
   const fetchStudentData = async () => {
@@ -168,6 +169,10 @@ export function PrintStudent({ isOpen, onClose, studentId, schoolId }: PrintStud
     console.log("Print completed")
   },
 })
+
+  const handlePrintClick = () => {
+    handlePrint()
+  }
   
   // Format full name
   const getFullName = (student: Student) => {
@@ -243,7 +248,7 @@ export function PrintStudent({ isOpen, onClose, studentId, schoolId }: PrintStud
                     <Download className="h-4 w-4 mr-2" />
                     Save as PDF
                   </Button>
-                  <Button onClick={handlePrint} disabled={!studentData}>
+                  <Button onClick={handlePrintClick} disabled={!studentData}>
                     <Printer className="h-4 w-4 mr-2" />
                     Print
                   </Button>
@@ -591,7 +596,7 @@ export function PrintStudent({ isOpen, onClose, studentId, schoolId }: PrintStud
         
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button onClick={handlePrint} disabled={!studentData}>
+          <Button onClick={handlePrintClick} disabled={!studentData}>
             <Printer className="h-4 w-4 mr-2" />
             Print
           </Button>

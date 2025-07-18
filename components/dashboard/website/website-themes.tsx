@@ -15,6 +15,7 @@ import {
   Grid,
   List
 } from "lucide-react";
+import Image from "next/image";
 
 interface WebsiteTheme {
   id: string;
@@ -108,6 +109,7 @@ export function WebsiteThemes({ schoolId, currentConfig }: WebsiteThemesProps) {
     };
 
     fetchThemes();
+    // eslint-disable-next-line
   }, [schoolId]);
 
   const categories = [
@@ -237,7 +239,7 @@ export function WebsiteThemes({ schoolId, currentConfig }: WebsiteThemesProps) {
               isActive ? 'ring-2 ring-blue-500 bg-blue-50' : ''
             }`}>
               <div className="relative aspect-[4/3] bg-gray-100">
-                <img 
+                <Image
                   src={theme.thumbnail} 
                   alt={theme.name}
                   className="w-full h-full object-cover"

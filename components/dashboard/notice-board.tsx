@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import Image from "next/image"
 
 export function NoticeBoard() {
   const notices = [
@@ -59,7 +60,7 @@ export function NoticeBoard() {
           {notices.map((notice) => (
             <div key={notice.id} className="flex items-start gap-4">
               <div className="rounded-md border p-2">
-                <img src={`/placeholder.svg?height=40&width=40`} alt="" className="h-10 w-10" />
+                <Image src={`/placeholder.svg?height=40&width=40`} alt="" className="h-10 w-10" />
               </div>
               <div className="flex-1 space-y-1">
                 <div className="flex items-center justify-between">

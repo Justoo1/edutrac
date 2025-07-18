@@ -128,15 +128,16 @@ export function ScheduleDialog({
     }
   }, [selectedRoom, form])
 
+  const selectedClassId = form.watch("classId");
+
   React.useEffect(() => {
-    const selectedClassId = form.watch("classId")
     if (selectedClassId) {
       const selectedClass = classes.find(c => c.id === selectedClassId)
       if (selectedClass?.room) {
         form.setValue("room", selectedClass.room)
       }
     }
-  }, [form.watch("classId"), classes, form])
+  }, [selectedClassId, classes, form])
 
   const handleSubmit = async (data: z.infer<typeof formSchema>) => {
     setIsLoading(true)

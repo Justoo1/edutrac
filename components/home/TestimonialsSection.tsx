@@ -132,7 +132,7 @@ export default function TestimonialsSection() {
                           </svg>
                         ))}
                       </div>
-                      <p className="text-gray-600 dark:text-gray-300 mb-6 italic">"{testimonial.content}"</p>
+                      <p className="text-gray-600 dark:text-gray-300 mb-6 italic">&quot;{testimonial.content}&quot;</p>
                     </div>
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-12 w-12 relative rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700">

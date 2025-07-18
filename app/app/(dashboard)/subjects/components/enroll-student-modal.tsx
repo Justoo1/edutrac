@@ -187,6 +187,7 @@ export default function EnrollStudentModal({
         setSelectedSubject(subjectId)
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, schoolId, subjectId])
 
   // Filter students based on selected batch and class
@@ -278,6 +279,7 @@ export default function EnrollStudentModal({
     if (selectedSubject) {
       filterEnrolledStudents(allStudents, selectedSubject)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSubject])
 
   const handleEnroll = async () => {

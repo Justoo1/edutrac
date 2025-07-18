@@ -212,6 +212,7 @@ export function ViewStudentProfile({ isOpen, onClose, studentId, schoolId }: Vie
     if (isOpen && activeTab === "academic" && studentId && !academicData && !academicLoading) {
       fetchAcademicData()
     }
+    // eslint-disable-next-line
   }, [isOpen, activeTab, studentId, academicData, academicLoading])
 
   const fetchAcademicData = async () => {

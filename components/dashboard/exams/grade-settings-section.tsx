@@ -104,6 +104,7 @@ export default function GradeSettingsSection({ schoolId }: GradeSettingsSectionP
 
     useEffect(() => {
         fetchGrades();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [schoolId]);
 
     const fetchGrades = async () => {
@@ -348,7 +349,7 @@ export default function GradeSettingsSection({ schoolId }: GradeSettingsSectionP
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                                     <AlertDialogDescription>
-                                                        This action cannot be undone. This will permanently delete the grade setting "{grade.gradeName}".
+                                                        This action cannot be undone. This will permanently delete the grade setting &quot;{grade.gradeName}&quot;.
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
