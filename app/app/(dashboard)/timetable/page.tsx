@@ -5,6 +5,8 @@ import { eq, asc } from "drizzle-orm"
 import db from "@/lib/db"
 import { academicTerms } from "@/lib/schema"
 
+export const dynamic = 'force-dynamic';
+
 export default async function TimetablePage() {
   const [classes, subjects, teachers, periods] = await Promise.all([
     getClasses(),

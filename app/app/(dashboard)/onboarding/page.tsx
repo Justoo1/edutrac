@@ -106,8 +106,8 @@ export default function QuickSchoolSetup() {
       // Call the createSchool server action
       const result = await createSchool(formData);
       
-      if (result.error) {
-        throw new Error(result.error);
+      if ('error' in result) {
+        throw new Error(result?.error);
       }
 
       toast.success("School created successfully!");

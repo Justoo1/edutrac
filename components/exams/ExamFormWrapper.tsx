@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import ExamForm from './ExamForm';
-import { SelectSubject } from '@/lib/schema';
+import { SelectClass, SelectExamPeriod, SelectSubject } from '@/lib/schema';
+import { Subject } from '@/types/exam';
 
 interface ExamFormWrapperProps {
   schoolType: 'BASIC' | 'SHS' | null;
@@ -22,11 +23,20 @@ const ExamFormWrapper: React.FC<ExamFormWrapperProps> = ({ schoolType, schoolId 
     console.log(data);
   };
 
+  const examPeriods: SelectExamPeriod[] = []; // Replace with actual data
+  const classes: SelectClass[] = []; // Replace with actual data
+  const subjects: Subject[] = []; // Replace with actual data
+  const assessmentTypes: any[] = []; // Replace with actual data
+
   return (
     <ExamForm
       schoolType={schoolType}
       schoolId={schoolId}
-      onSubmit={handleExamSubmit}
+      examPeriods={examPeriods}
+      classes={classes}
+      subjects={subjects}
+      assessmentTypes={assessmentTypes}
+      onSubmit={(data:any) => handleExamSubmit(data)}
     />
   );
 };

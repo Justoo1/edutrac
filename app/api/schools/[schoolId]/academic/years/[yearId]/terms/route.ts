@@ -8,7 +8,7 @@ import { eq, and, asc } from 'drizzle-orm';
 
 export async function GET(
   req: Request,
-  { params }: { params: { schoolId: string; yearId: string } }
+  { params }: { params: Promise<{ schoolId: string; yearId: string }> }
 ) {
   try {
     // Check authentication
@@ -21,7 +21,7 @@ export async function GET(
       );
     }
     
-    const { schoolId, yearId } = params;
+    const { schoolId, yearId } = await params;
     
     if (!schoolId || !yearId) {
       return NextResponse.json(

@@ -6,6 +6,7 @@ import Form from "@/components/form";
 import db from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { SelectSchool } from "@/lib/schema";
 
 interface School {
   id: string;
@@ -18,7 +19,7 @@ interface School {
   footerContent: string | null;
 }
 
-async function handleSubmit(formData: FormData | null, school: string | undefined, key: string | null) {
+async function handleSubmit(formData: FormData | null, school: SelectSchool | undefined, key: string | null) {
   "use server";
   
   if (!formData || !school) return;
@@ -126,6 +127,7 @@ export default async function AppearanceSettingsPage({
           description={`Configure ${input.label.toLowerCase()}`}
           helpText=""
           inputAttrs={input}
+          school={school}
           handleSubmit={handleSubmit}
         />
       ))}

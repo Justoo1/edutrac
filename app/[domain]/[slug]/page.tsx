@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
-import { getContentBySlug, getSchoolData } from "@/lib/fetchers";
+import { getSchoolData } from "@/lib/fetchers";
 import BlurImage from "@/components/blur-image";
 import { placeholderBlurhash, toDateString } from "@/lib/utils";
-import MDX from "@/components/mdx";
 import Link from "next/link";
 import { CalendarDays, User, ArrowLeft } from "lucide-react";
 import db from "@/lib/db";
@@ -20,7 +19,8 @@ export async function generateMetadata({
   const decodedDomain = decodeURIComponent(domain);
   const decodedSlug = decodeURIComponent(slug);
 
-  const data = await getContentBySlug(decodedDomain, decodedSlug);
+  const data = null;
+  // await getContentBySlug(decodedDomain, decodedSlug);
   if (!data) {
     return null;
   }

@@ -46,11 +46,12 @@ export default function SchoolHeader({
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">
                   {school.name}
                 </h1>
-                {school.motto && (
+                {/* TODO: Add motto */}
+                {/* {school?.motto && (
                   <p className="text-xs italic text-gray-600 dark:text-gray-300">
                     {school.motto}
                   </p>
-                )}
+                )} */}
               </div>
             </Link>
           </div>

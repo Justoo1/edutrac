@@ -8,7 +8,7 @@ import { eq } from "drizzle-orm"
 export default async function EditTeacherPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
   const session = await getServerSession()
   
@@ -16,8 +16,9 @@ export default async function EditTeacherPage({
     redirect("/teachers")
   }
 
+  const { id } = await params;
   const teacher = await db.query.staff.findFirst({
-    where: eq(staff.id, params.id),
+    where: eq(staff.id, id),
     with: {
       user: true,
     },

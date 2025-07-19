@@ -2,21 +2,23 @@ import { getSession } from "@/lib/auth";
 import { notFound, redirect } from "next/navigation";
 import AnalyticsMockup from "@/components/analytics";
 import db from "@/lib/db";
+import { schools } from "@/lib/schema";
 
 export default async function SiteAnalytics({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const session = await getSession();
   if (!session) {
     redirect("/login");
   }
-  const data = await db.query.sites.findFirst({
-    where: (sites, { eq }) => eq(sites.id, decodeURIComponent(params.id)),
+  const { id } = await params;
+  const data = await db.query.schools.findFirst({
+    where: (schools, { eq }) => eq(schools.id, decodeURIComponent(id)),
   });
 
-  if (!data || data.userId !== session.user.id) {
+  if (!data || data.adminId !== session.user.id) {
     notFound();
   }
 

@@ -35,7 +35,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { SelectSchool } from "@/lib/schema"
+import { SelectSchool, SelectStudent } from "@/lib/schema"
 
 // Define types for the form
 type Batch = {
@@ -135,7 +135,7 @@ export function AddStudentsToBatchDialog({
           
           // Filter out students who are already in ANY batch
           const availableStudents = activeStudents.filter(
-            student => !studentsInAnyBatch.has(student.id)
+            (student: SelectStudent) => !studentsInAnyBatch.has(student.id)
           )
           
           setUnassignedStudents(availableStudents)

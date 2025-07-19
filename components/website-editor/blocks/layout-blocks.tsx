@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import { Grid, Box } from "lucide-react";
 import { useDrop } from "react-dnd";
 import { BlockType } from "./types";
@@ -124,9 +124,13 @@ const DropZone = ({
     }),
   }));
 
+  const dropRef = useCallback((node: HTMLDivElement | null) => {
+    drop(node);
+  }, [drop]);
+
   return (
     <div
-      ref={drop}
+      ref={dropRef}
       className={`min-h-32 border-2 border-dashed rounded-lg p-4 transition-colors ${
         isOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'
       }`}

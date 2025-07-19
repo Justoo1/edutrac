@@ -16,7 +16,7 @@ import {
 import db from "@/lib/db";
 import { eq, and, desc, asc, sql, inArray } from "drizzle-orm";
 import { calculateDenseRank, calculateStandardRank, getStudentReportData } from "./reportUtils";
-import { renderToStream } from "@react-pdf/renderer";
+import { renderToBuffer, renderToStream } from "@react-pdf/renderer";
 import { 
   ReportContext, 
   BasicSchoolReportCard, 
@@ -80,7 +80,7 @@ export async function generateStudentReport(
       : BasicSchoolReportCard;
     
     // Create the PDF blob
-    const blob = await renderToStream(
+    const pdfBuffer = await renderToBuffer(
       <Document>
         <ReportComponent
           schoolInfo={{
@@ -121,7 +121,7 @@ export async function generateStudentReport(
     // Return the requested format
     return {
       success: true,
-      blob,
+      blob:pdfBuffer,
       reportData
     };
   } catch (error) {

@@ -8,7 +8,7 @@ export * from './SubjectsTable';
 export * from './SHSSubjectsTable';
 export * from './AttendanceSection';
 export * from './SummarySection';
-export * from './CommentsSection';
+export { CommentsSection as CommentsSectionComponent } from './CommentsSection';
 export * from './BehaviorSection';
 export * from './SignatureSection';
 export * from './GradingKey';

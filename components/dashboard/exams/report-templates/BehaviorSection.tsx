@@ -14,7 +14,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   behaviorTable: {
-    display: 'table',
+    display: 'table' as any,
     width: '100%',
     borderStyle: 'solid',
     borderColor: '#000',

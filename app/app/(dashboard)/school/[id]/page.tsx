@@ -35,12 +35,7 @@ export default async function SchoolContentPage({
   const { id } = await params
   const schoolId = decodeURIComponent(id);
   const data = await db.query.schools.findFirst({
-    where: (schools, { eq }) => eq(schools.id, schoolId),
-    with: {
-      students: true,
-      staffMembers: true,
-      classes: true,
-    },
+    where: (schools, { eq }) => eq(schools.id, schoolId)
   });
 
   if (!data || data.adminId !== session.user.id) {
@@ -109,7 +104,7 @@ export default async function SchoolContentPage({
             <CardTitle>Students</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{data.students.length}</p>
+            <p className="text-2xl font-bold">{0}</p>
             <p className="text-sm text-muted-foreground">Total enrolled students</p>
           </CardContent>
         </Card>
@@ -119,7 +114,7 @@ export default async function SchoolContentPage({
             <CardTitle>Staff</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{data.staffMembers.length}</p>
+            <p className="text-2xl font-bold">{0}</p>
             <p className="text-sm text-muted-foreground">Total staff members</p>
           </CardContent>
         </Card>
@@ -129,7 +124,7 @@ export default async function SchoolContentPage({
             <CardTitle>Classes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{data.classes.length}</p>
+            <p className="text-2xl font-bold">{0}</p>
             <p className="text-sm text-muted-foreground">Active classes</p>
           </CardContent>
         </Card>

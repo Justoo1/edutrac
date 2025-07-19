@@ -6,10 +6,12 @@ import { schools } from "@/lib/schema";
 export default async function SiteSettingsDomains({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+
+  const { id } = await params
   const data = await db.query.schools.findFirst({
-    where: (schools, { eq }) => eq(schools.id, decodeURIComponent(params.id)),
+    where: (schools, { eq }) => eq(schools.id, decodeURIComponent(id)),
   });
 
   return (

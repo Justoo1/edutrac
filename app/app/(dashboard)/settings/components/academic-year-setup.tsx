@@ -40,6 +40,7 @@ const academicYearSchema = z.object({
   name: z.string().min(4, "Academic year must be at least 4 characters"),
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
+  current: z.boolean(),
 });
 
 type AcademicYearFormValues = {

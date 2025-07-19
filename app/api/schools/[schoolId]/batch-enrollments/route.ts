@@ -6,7 +6,7 @@ import { and, eq, inArray } from "drizzle-orm";
 
 export async function GET(
   req: Request,
-  { params }: { params: { schoolId: string } }
+  { params }: { params: Promise<{ schoolId: string }> }
 ) {
   try {
     const session = await getSession();
@@ -14,7 +14,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const schoolId = params.schoolId;
+    const { schoolId } = await params;
     if (!schoolId) {
       return NextResponse.json(
         { error: "School ID is required" },
@@ -78,7 +78,7 @@ export async function GET(
 
 export async function POST(
   req: Request,
-  { params }: { params: { schoolId: string } }
+  { params }: { params: Promise<{ schoolId: string }> }
 ) {
   try {
     const session = await getSession();
@@ -86,7 +86,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const schoolId = params.schoolId;
+    const { schoolId } = await params;
     if (!schoolId) {
       return NextResponse.json(
         { error: "School ID is required" },

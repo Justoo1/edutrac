@@ -614,7 +614,7 @@ export default function GenerateTerminalReportsPage({ schoolId }: GenerateTermin
               </Button>
               <Button 
                 onClick={form.handleSubmit(onSubmit)}
-                disabled={isGenerating || isLoading || (!generateAllStudents && (!form.getValues().selectedStudents || form.getValues().selectedStudents.length === 0))}
+                disabled={isGenerating || isLoading || (!generateAllStudents && (!form.getValues().selectedStudents || form?.getValues()?.selectedStudents?.length === 0))}
               >
                 {isGenerating ? (
                   <>

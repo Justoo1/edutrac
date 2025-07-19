@@ -110,10 +110,12 @@ interface AssessmentType {
 
 interface CreateExamFormProps {
   schoolId: string;
+  schoolType: "BASIC" | "SHS" | null;
   examPeriods: ExamPeriod[];
   classes: Class[];
   subjects: Subject[];
   assessmentTypes: AssessmentType[];
+  onSubmit?: (data: ExamFormValues) => void;
 }
 
 const CreateExamForm = ({

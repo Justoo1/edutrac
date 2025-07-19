@@ -90,7 +90,7 @@ export function GradeBySubjectChart() {
                   fill={getSubjectColor(entry.subject)}
                   radius={[0, 4, 4, 0]}
                   barSize={18}
-                  background={{ fill: '#f5f5f5', radius: [0, 4, 4, 0] }}
+                  background={{ fill: '#f5f5f5', radius: 4 }}
                 />
               ))}
             </BarChart>

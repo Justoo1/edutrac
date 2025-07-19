@@ -10,27 +10,30 @@ import { Session } from "next-auth";
 // Extend Session user type
 interface ExtendedSession extends Session {
   user: {
-    id?: string;
+    id: string;
     name?: string | null;
     email?: string | null;
     image?: string | null;
+    role: "admin" | "class_teacher" | "student";
+    schoolId: string;
   };
 }
 
 // Define page params interface
 interface PageParams {
-  params: {
+  params: Promise<{
     schoolId: string;
-  };
-  searchParams: {
+  }>;
+  searchParams: Promise<{
     type?: string;
     [key: string]: string | string[] | undefined;
-  };
+  }>;
 }
 
 export default async function CreateContentPage({ params, searchParams }: PageParams) {
-  const { schoolId } = params;
-  const contentType = searchParams?.type || 'page';
+  const { schoolId } = await params;
+  const {type} = await searchParams;
+  const contentType = type || 'page';
   const isHero = contentType === 'hero';
   
   // Check user session and permissions

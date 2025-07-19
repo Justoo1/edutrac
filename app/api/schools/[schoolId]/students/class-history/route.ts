@@ -445,18 +445,6 @@ export async function DELETE(
       );
     }
 
-    // Check if the record has any associated assessment results
-    const hasResults = await db.query.assessmentResults.findFirst({
-      where: (results, { eq }) => eq(results.studentId, existingRecord.studentId),
-    });
-
-    if (hasResults) {
-      return NextResponse.json(
-        { error: "Cannot delete a record with associated assessment results" },
-        { status: 400 }
-      );
-    }
-
     // Delete the record
     await db.delete(studentClassHistory)
       .where(and(eq(studentClassHistory.id, recordId), eq(studentClassHistory.schoolId, schoolId)));

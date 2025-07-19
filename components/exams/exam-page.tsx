@@ -85,9 +85,10 @@ const mockExams = [
     studentCount: 63
   }
 ];
+type ExamStatus = 'Draft' | 'Published' | 'Ongoing' | 'Completed' | 'Archived';
 
 // Status badge component
-const StatusBadge = ({ status }) => {
+const StatusBadge = ({ status }: { status: ExamStatus }) => {
   const statusStyles = {
     Draft: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
     Published: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
@@ -130,7 +131,7 @@ export default function ExamsManagement() {
     completed: mockExams.filter(e => e.status === 'Completed').length
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB', { 
       day: 'numeric', 
@@ -303,7 +304,7 @@ export default function ExamsManagement() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <StatusBadge status={exam.status} />
+                          <StatusBadge status={exam.status as ExamStatus} />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {exam.studentCount} students

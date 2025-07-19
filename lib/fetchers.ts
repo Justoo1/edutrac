@@ -3,23 +3,22 @@ import db from "./db";
 import { and, desc, eq, not, count, asc } from "drizzle-orm";
 import { schools, schoolContent, staff, students, classes, classEnrollments, batches, batchEnrollments, subjects, academicYears, academicTerms, periods } from "./schema";
 import { serialize } from "next-mdx-remote/serialize";
-import { replaceExamples, replaceTweets } from "@/lib/remark-plugins";
 import { getSession } from "@/lib/auth";
 
-async function getMdxSource(postContents: string) {
-  // transforms links like <link> to [link](link) as MDX doesn't support <link> syntax
-  // https://mdxjs.com/docs/what-is-mdx/#markdown
-  const content =
-    postContents?.replaceAll(/<(https?:\/\/\S+)>/g, "[$1]($1)") ?? "";
-  // Serialize the content string into MDX
-  const mdxSource = await serialize(content, {
-    mdxOptions: {
-      remarkPlugins: [replaceTweets, () => replaceExamples(db)],
-    },
-  });
+// async function getMdxSource(postContents: string) {
+//   // transforms links like <link> to [link](link) as MDX doesn't support <link> syntax
+//   // https://mdxjs.com/docs/what-is-mdx/#markdown
+//   const content =
+//     postContents?.replaceAll(/<(https?:\/\/\S+)>/g, "[$1]($1)") ?? "";
+//   // Serialize the content string into MDX
+//   const mdxSource = await serialize(content, {
+//     mdxOptions: {
+//       remarkPlugins: [replaceTweets, () => replaceExamples(db)],
+//     },
+//   });
 
-  return mdxSource;
-}
+//   return mdxSource;
+// }
 
 export async function getSchoolData(domain: string) {
   // The domain parameter is already the subdomain from the middleware
@@ -30,9 +29,6 @@ export async function getSchoolData(domain: string) {
     async () => {
       return await db.query.schools.findFirst({
         where: eq(schools.subdomain, domain),
-        with: {
-          admin: true,
-        },
       });
     },
     [`${domain}-metadata`],
@@ -107,89 +103,89 @@ export async function getContentForSchool(domain: string, contentType: string) {
   )();
 }
 
-export async function getContentBySlug(domain: string, slug: string) {
-  const subdomain = domain.endsWith(`.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`)
-    ? domain.replace(`.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`, "")
-    : null;
+// export async function getContentBySlug(domain: string, slug: string) {
+//   const subdomain = domain.endsWith(`.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`)
+//     ? domain.replace(`.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`, "")
+//     : null;
 
-  return await unstable_cache(
-    async () => {
-      const data = await db
-        .select({
-          content: schoolContent,
-          school: schools,
-          author: {
-            id: staff.id,
-            name: staff.userId,
-            image: staff.userId,
-          },
-        })
-        .from(schoolContent)
-        .leftJoin(schools, eq(schools.id, schoolContent.schoolId))
-        .leftJoin(staff, eq(staff.id, schoolContent.authorId))
-        .where(
-          and(
-            eq(schoolContent.slug, slug),
-            eq(schoolContent.published, true),
-            subdomain
-              ? eq(schools.subdomain, subdomain)
-              : eq(schools.customDomain, domain),
-          ),
-        )
-        .then((res) =>
-          res.length > 0
-            ? {
-                ...res[0].content,
-                school: res[0].school,
-                author: res[0].author,
-              }
-            : null,
-        );
+//   return await unstable_cache(
+//     async () => {
+//       const data = await db
+//         .select({
+//           content: schoolContent,
+//           school: schools,
+//           author: {
+//             id: staff.id,
+//             name: staff.userId,
+//             image: staff.userId,
+//           },
+//         })
+//         .from(schoolContent)
+//         .leftJoin(schools, eq(schools.id, schoolContent.schoolId))
+//         .leftJoin(staff, eq(staff.id, schoolContent.authorId))
+//         .where(
+//           and(
+//             eq(schoolContent.slug, slug),
+//             eq(schoolContent.published, true),
+//             subdomain
+//               ? eq(schools.subdomain, subdomain)
+//               : eq(schools.customDomain, domain),
+//           ),
+//         )
+//         .then((res) =>
+//           res.length > 0
+//             ? {
+//                 ...res[0].content,
+//                 school: res[0].school,
+//                 author: res[0].author,
+//               }
+//             : null,
+//         );
 
-      if (!data) return null;
+//       if (!data) return null;
 
-      const [mdxSource, relatedContent] = await Promise.all([
-        getMdxSource(data.content!),
-        db
-          .select({
-            id: schoolContent.id,
-            title: schoolContent.title,
-            description: schoolContent.description,
-            slug: schoolContent.slug,
-            image: schoolContent.image,
-            imageBlurhash: schoolContent.imageBlurhash,
-            contentType: schoolContent.contentType,
-            publishDate: schoolContent.publishDate,
-            createdAt: schoolContent.createdAt,
-          })
-          .from(schoolContent)
-          .leftJoin(schools, eq(schools.id, schoolContent.schoolId))
-          .where(
-            and(
-              eq(schoolContent.published, true),
-              eq(schoolContent.contentType, data.contentType),
-              not(eq(schoolContent.id, data.id)),
-              subdomain
-                ? eq(schools.subdomain, subdomain)
-                : eq(schools.customDomain, domain),
-            ),
-          )
-          .limit(3),
-      ]);
+//       const [mdxSource, relatedContent] = await Promise.all([
+//         getMdxSource(data.content!),
+//         db
+//           .select({
+//             id: schoolContent.id,
+//             title: schoolContent.title,
+//             description: schoolContent.description,
+//             slug: schoolContent.slug,
+//             image: schoolContent.image,
+//             imageBlurhash: schoolContent.imageBlurhash,
+//             contentType: schoolContent.contentType,
+//             publishDate: schoolContent.publishDate,
+//             createdAt: schoolContent.createdAt,
+//           })
+//           .from(schoolContent)
+//           .leftJoin(schools, eq(schools.id, schoolContent.schoolId))
+//           .where(
+//             and(
+//               eq(schoolContent.published, true),
+//               eq(schoolContent.contentType, data.contentType),
+//               not(eq(schoolContent.id, data.id)),
+//               subdomain
+//                 ? eq(schools.subdomain, subdomain)
+//                 : eq(schools.customDomain, domain),
+//             ),
+//           )
+//           .limit(3),
+//       ]);
 
-      return {
-        ...data,
-        mdxSource,
-        relatedContent,
-      };
-    },
-    [`${domain}-${slug}`],
-    {
-      revalidate: 900,
-      tags: [`${domain}-${slug}`],
-    },
-  )();
-}
+//       return {
+//         ...data,
+//         mdxSource,
+//         relatedContent,
+//       };
+//     },
+//     [`${domain}-${slug}`],
+//     {
+//       revalidate: 900,
+//       tags: [`${domain}-${slug}`],
+//     },
+//   )();
+// }
 
 // For admin dashboard
 export async function getStudentsForSchool(schoolId: string) {

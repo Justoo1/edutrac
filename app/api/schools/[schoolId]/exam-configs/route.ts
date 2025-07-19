@@ -240,19 +240,7 @@ export async function DELETE(
         { status: 400 }
       );
     }
-
-    // Check if the config is in use by any assessments
-    const usedByAssessment = await db.query.assessments.findFirst({
-      where: (assessments, { eq }) => eq(assessments.percentageConfigId, configId),
-    });
-
-    if (usedByAssessment) {
-      return NextResponse.json(
-        { error: "Cannot delete a configuration that is in use by exams" },
-        { status: 400 }
-      );
-    }
-
+    
     // Delete the config
     await db.delete(examPercentageConfigs)
       .where(and(eq(examPercentageConfigs.id, configId), eq(examPercentageConfigs.schoolId, schoolId)));

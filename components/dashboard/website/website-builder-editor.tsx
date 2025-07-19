@@ -77,6 +77,10 @@ const DraggableBlock = ({ blockType, onDrop, category }: {
     }),
   }));
 
+  const dragRef = useCallback((node: HTMLDivElement | null) => {
+    drag(node);
+  }, [drag]);
+
   const Icon = blockType.icon;
   const categoryColors = {
     Hero: 'bg-blue-50 border-blue-200 text-blue-800',
@@ -90,7 +94,7 @@ const DraggableBlock = ({ blockType, onDrop, category }: {
 
   return (
     <div
-      ref={drag}
+      ref={dragRef}
       className={`p-3 border rounded-lg cursor-move hover:shadow-md transition-all ${
         isDragging ? 'opacity-50' : ''
       } ${categoryColors[category as keyof typeof categoryColors] || 'border-gray-200'}`}
@@ -126,6 +130,10 @@ const DroppableCanvas = ({
       isOver: monitor.isOver(),
     }),
   }));
+
+  const dropRef = useCallback((node: HTMLDivElement | null) => {
+    drop(node);
+  }, [drop]);
 
   const BlockWrapper = ({ 
     block, 
@@ -181,7 +189,7 @@ const DroppableCanvas = ({
 
   return (
     <div
-      ref={drop}
+      ref={dropRef}
       className={`min-h-screen bg-white ${isOver ? 'bg-blue-50' : ''}`}
     >
       {blocks.length === 0 ? (

@@ -63,11 +63,11 @@ export interface DashboardData {
     studentName: string
     averageScore: number
     totalSubjects: number
-    className: string
+    className: string | null
   }>
   recentAnnouncements: Array<{
     id: string
-    title: string
+    title: string | null
     description: string | null
     createdAt: Date
   }>
@@ -278,8 +278,8 @@ export async function getDashboardData(): Promise<DashboardData> {
       id: school.id,
       name: school.name,
     },
-    currentAcademicYear,
-    currentTerm,
+    currentAcademicYear: currentAcademicYear ?? null,
+    currentTerm: currentTerm ?? null,
     statistics: {
       studentsCount,
       staffCount,

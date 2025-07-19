@@ -7,23 +7,26 @@ import ReportCommentsPage from "@/components/dashboard/exams/report-comments-pag
 export default async function CommentsPage({
   searchParams,
 }: {
-  searchParams: { 
+  searchParams: Promise<{ 
     classId?: string;
     academicYearId?: string;
     academicTermId?: string;
-  };
+  }>;
 }) {
   const session = await getSession();
   if (!session?.user) {
     redirect("/login");
   }
 
+  // Await the searchParams Promise
+  const { classId, academicYearId, academicTermId } = await searchParams;
+
   return (
     <ReportCommentsPage 
       schoolId={session.user.schoolId}
-      classId={searchParams.classId}
-      academicYearId={searchParams.academicYearId}
-      academicTermId={searchParams.academicTermId}
+      classId={classId}
+      academicYearId={academicYearId}
+      academicTermId={academicTermId}
     />
   );
 }

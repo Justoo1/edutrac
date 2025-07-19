@@ -29,9 +29,6 @@ export async function POST(req: Request) {
     // Check if user has access to this school
     const school = await db.query.schools.findFirst({
       where: eq(schools.id, schoolId),
-      with: {
-        admin: true,
-      },
     });
 
     if (!school || school.adminId !== session.user.id) {
@@ -85,9 +82,6 @@ export async function GET(req: Request) {
     // Check if user has access to this school
     const school = await db.query.schools.findFirst({
       where: eq(schools.id, schoolId),
-      with: {
-        admin: true,
-      },
     });
 
     if (!school || school.adminId !== session.user.id) {

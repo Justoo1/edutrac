@@ -17,9 +17,10 @@ import * as z from "zod"
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { SelectStaff, updateTeacher } from "@/lib/actions"
+import {  updateTeacher } from "@/lib/actions"
 import { DynamicJsonForm } from "@/components/form/dynamic-json-form"
 import { useState } from "react"
+import { SelectStaff } from "@/lib/schema"
 
 const teacherFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),

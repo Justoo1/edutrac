@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { motion, AnimatePresence } from "framer-motion"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { SelectStaff, deleteTeacher } from "@/lib/actions"
+import { deleteTeacher } from "@/lib/actions"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
@@ -42,6 +42,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { SelectStaff } from "@/lib/schema"
 
 interface TeacherTableProps {
   teachers: SelectStaff[]

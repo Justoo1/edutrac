@@ -60,11 +60,26 @@ async function getGuardianData(id: string) {
           firstName: true,
           lastName: true,
           studentId: true,
-          currentGradeLevel: true,
           schoolId: true,
           dateOfBirth: true,
           gender: true,
-          status: true,
+          status: true
+        },
+        with: {
+          batchEnrollments: {
+            columns: {
+              id: true
+            },
+            with: {
+              batch: {
+                columns: {
+                  id: true,
+                  name: true,
+                  gradeLevel: true
+                }
+              }
+            }
+          }
         },
       },
     },
@@ -285,7 +300,7 @@ const GuardianDetailPage = async ({ params }: { params: Promise<{ id: string }> 
                         <td className="px-4 py-3 text-sm font-medium">
                           {student.firstName} {student.lastName}
                         </td>
-                        <td className="px-4 py-3 text-sm">{student.currentGradeLevel || 'N/A'}</td>
+                        <td className="px-4 py-3 text-sm">{student.batchEnrollments[0]?.batch?.gradeLevel || 'N/A'}</td>
                         <td className="px-4 py-3 text-sm">
                           <Badge variant={student.status === 'active' ? 'default' : 'secondary'}>
                             {(student.status || 'unknown').charAt(0).toUpperCase() + (student.status || 'unknown').slice(1)}

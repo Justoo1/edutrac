@@ -41,6 +41,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SelectAcademicYear } from "@/lib/schema";
 
 const termSchema = z.object({
   name: z.string().min(1, "Term name is required"),
@@ -92,7 +93,7 @@ export function TermSetup({ schoolId }: TermSetupProps) {
           setAcademicYears(yearsData);
           
           // Set default academic year to current one after data is loaded
-          const currentYear = yearsData.find(year => year.isCurrent);
+          const currentYear = yearsData.find((year:SelectAcademicYear) => year.isCurrent);
           if (currentYear) {
             form.setValue("academicYearId", currentYear.id);
             form.setValue("startDate", currentYear.startDate);

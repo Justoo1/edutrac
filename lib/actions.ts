@@ -25,7 +25,8 @@ import {
   attendance, 
   feeTypes, 
   feePayments, 
-  users 
+  users, 
+  academicYears
 } from "./schema";
 import { 
   SelectSchool, 
@@ -38,6 +39,7 @@ import {
   SelectFeePayment 
 } from "./schema";
 import { hash } from "bcryptjs";
+import { e } from "@vercel/blob/dist/put-96a1f07e";
 
 const nanoid = customAlphabet(
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
@@ -1022,6 +1024,12 @@ export const recordAttendance = withSchoolAuth(
           eq(students.schoolId, school.id)
         ),
       });
+      const academicYearData = await db.query.academicYears.findFirst({
+        where: and(
+          eq(academicYears.schoolId, school.id),
+          eq(academicYears.isCurrent, true)
+        ),
+      });
 
       const staffMember = await db.query.staff.findFirst({
         where: and(
@@ -1030,9 +1038,9 @@ export const recordAttendance = withSchoolAuth(
         ),
       });
 
-      if (!classData || !studentData || !staffMember) {
+      if (!classData || !studentData || !staffMember || !academicYearData) {
         return {
-          error: "Class, student, or staff member not found in this school",
+          error: "Class, student, academic year or staff member not found in this school",
         };
       }
 
@@ -1063,6 +1071,8 @@ export const recordAttendance = withSchoolAuth(
           .insert(attendance)
           .values({
             studentId,
+            schoolId: school.id,
+            academicYearId: academicYearData!.id!,
             classId,
             date,
             status,
@@ -1779,7 +1789,7 @@ export async function getSchoolPlanAndSiteCount(schoolId: string) {
   const school = await db.query.schools.findFirst({
     where: eq(schools.id, schoolId),
     with: {
-      contents: true,
+      websiteConfig: true,
     },
   });
 
@@ -1789,7 +1799,7 @@ export async function getSchoolPlanAndSiteCount(schoolId: string) {
 
   return {
     plan: school.plan || 'free',
-    siteCount: school.contents.length,
+    siteCount: school.websiteConfig ? 1 : 0,
   };
 }
 

@@ -15,7 +15,7 @@ import {
   Palette, 
   Type, 
   Layout, 
-  Spacing,
+  // Spacing,
   Moon,
   Sun,
   Droplets,

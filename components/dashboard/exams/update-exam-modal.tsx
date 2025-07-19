@@ -148,7 +148,7 @@ export default function BatchUpdateScoresModal({
       // Group scores by exam
       const scoresByExam = scores.reduce((grouped, score) => {
         if (!grouped[score.examId]) {
-          const exam = formattedExams.find(e => e.id === score.examId);
+          const exam = formattedExams.find((e:any) => e.id === score.examId);
           grouped[score.examId] = {
             examId: score.examId,
             examName: exam?.name || 'Unknown Exam',

@@ -9,15 +9,35 @@ interface Student {
   status?: "present" | "absent" | "exempted" | "sick" | "assigned";
 }
 
+interface Subject {
+  id: string;
+  name: string;
+  code: string;
+}
+
+interface Class {
+  id: string;
+  name: string;
+  gradeLevel: string;
+}
+
+interface ExamType {
+  id: string;
+  name: string;
+}
+
 interface ExamData {
   id: string;
   name: string;
-  subject: string;
+  subject: Subject | string;
   subjectCode: string;
   className: string;
   examDate: string;
   totalMarks: number;
   students: Student[];
+  examTypeName?: string;
+  examType?: ExamType;
+  class?: Class;
 }
 
 /**
@@ -319,7 +339,7 @@ function parseCSVRow(row: string): string[] {
 
 // In lib/export-utils.ts
 
-import * as XLSX from 'xlsx/xlsx.mjs';
+import * as XLSX from 'xlsx';
 
 // New function for Excel export
 export function generateMultiExamExcel(
@@ -347,15 +367,22 @@ export function generateMultiExamExcel(
   const headerRow = ["Index Number", "Student Name"];
   
   // Store exam IDs in a hidden property in the worksheet
-  const examIds = {};
+  const examIds: { [key: number]: string } = {};
   
   exams.forEach((exam, index) => {
     // Use exam type instead of name for column header
     const examType = exam.examTypeName || "Exam";
-    headerRow.push(`${examType} ${exam.subject.name} ${exam.class.name}`);
+    const subjectName = typeof exam.subject === 'string' 
+      ? exam.subject 
+      : (exam.subject as any)?.name || exam.subject;
+    
+    // ✅ Safely handle class name
+    const className = (exam as any).class?.name || exam.className;
+    
+    headerRow.push(`${examType} ${subjectName} ${className}`);
     
     // Store exam ID with column index for later retrieval
-    examIds[index + 2] = exam.id; // +2 because first two columns are index number and name
+    examIds[index + 2] = exam.id;
   });
   
   wsData.push(headerRow);
@@ -379,7 +406,7 @@ export function generateMultiExamExcel(
     
     // Add empty cells for scores
     exams.forEach(() => {
-      row.push(0);
+      row.push('0');
     });
     
     wsData.push(row);
@@ -418,10 +445,10 @@ export function generateMultiExamExcel(
     pivotTables: false,
     objects: false,
     scenarios: false
-  };
+  }as { [key: string]: any };
   
   // Define editable cells (only score cells)
-  const editableCells = {};
+  const editableCells: { [key: string]: any } = {};
   
   // Start from row 7 (after headers) and column C (after index and name)
   for (let col = 2; col < 2 + exams.length; col++) {

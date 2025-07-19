@@ -14,8 +14,7 @@ import {
   FormLabel, 
   FormMessage 
 } from "@/components/ui/form";
-import { BatchWithSchool } from "@/types/batch";
-import { Student } from "@/types/student";
+
 import { 
   Card, 
   CardContent, 
@@ -33,16 +32,17 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SelectStudent } from "@/lib/schema";
 
 const formSchema = z.object({
-  studentIds: z.array(z.string()).nonempty("Select at least one student"),
+  studentIds: z.array(z.string()).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
 interface BatchEnrollmentFormProps {
-  batch: BatchWithSchool;
-  availableStudents: Student[];
+  batch: any;
+  availableStudents: SelectStudent[];
   onSuccess?: () => void;
 }
 
@@ -58,7 +58,7 @@ export function BatchEnrollmentForm({
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      studentIds: [],
+      studentIds: [""],
     },
   });
 
@@ -91,7 +91,7 @@ export function BatchEnrollmentForm({
   };
 
   async function onSubmit(data: FormValues) {
-    if (data.studentIds.length === 0) {
+    if (data?.studentIds?.length === 0) {
       toast.error("Please select at least one student");
       return;
     }
@@ -131,7 +131,7 @@ export function BatchEnrollmentForm({
         return;
       }
 
-      toast.success(`Successfully enrolled ${data.studentIds.length} students to batch`);
+      toast.success(`Successfully enrolled ${data?.studentIds?.length} students to batch`);
       
       // Reset form
       form.reset();
@@ -201,7 +201,7 @@ export function BatchEnrollmentForm({
                                 <TableCell>
                                   {student.firstName} {student.lastName}
                                 </TableCell>
-                                <TableCell>{student.email}</TableCell>
+                                <TableCell>{student.studentId}</TableCell>
                               </TableRow>
                             ))
                           )}

@@ -18,6 +18,8 @@ import db from '@/lib/db'
 import { eq } from 'drizzle-orm'
 import { schools } from '@/lib/schema'
 
+export const dynamic = 'force-dynamic';
+
 const ClassRoomPage = async () => {
   const session = await getSession()
   if (!session) {

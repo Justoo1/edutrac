@@ -16,6 +16,15 @@ type AutoTableOptions = {
   [key: string]: any
 }
 
+interface CategoryData {
+  count: number;
+  total: number;
+}
+
+interface CategoryBreakdown {
+  [category: string]: CategoryData;
+}
+
 // Extend jsPDF type to include lastAutoTable
 declare module 'jspdf' {
   interface jsPDF {
@@ -332,7 +341,7 @@ export class ExpensePDFExporter {
       this.addPageHeader();
     }
 
-    const categoryBreakdown = expenseData.reduce((acc, item) => {
+    const categoryBreakdown: CategoryBreakdown = expenseData.reduce((acc, item) => {
       const expense = item.expense || item;
       const category = expense.category || 'Other';
       const amount = expense.amount || 0;

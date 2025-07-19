@@ -11,7 +11,7 @@ import { SubjectResult } from './ReportTypes';
 // Create styles
 const styles = StyleSheet.create({
   table: {
-    display: 'table',
+    display: 'table' as any,
     width: 'auto',
     borderStyle: 'solid',
     borderColor: '#000',
