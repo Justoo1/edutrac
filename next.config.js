@@ -6,7 +6,8 @@ module.exports = {
     serverActions: {
       allowedOrigins: [
         "app.localhost:3000", // Keep for local development
-        process.env.NEXT_PUBLIC_APP_URL, // Add for production
+        "app.edtmsys.com", // Production app domain
+        "*.edtmsys.com", // Wildcard for subdomains
       ],
     },
   },
@@ -21,13 +22,14 @@ module.exports = {
       { hostname: "www.google.com" },
       { hostname: "flag.vercel.app" },
       { hostname: "illustrations.popsy.co" },
-      // Add your Vercel deployment domain for images
+      { hostname: "*.edtmsys.com" },
+      { hostname: "edtmsys.com" },
       { hostname: "*.vercel.app" },
     ],
   },
+  
   compress: true,
   poweredByHeader: false,
-  generateEtags: false,
   
   async headers() {
     return [
@@ -41,6 +43,10 @@ module.exports = {
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin',
           },
         ],
       },
