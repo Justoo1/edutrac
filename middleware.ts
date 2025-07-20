@@ -16,60 +16,99 @@ export const config = {
 
 export default async function middleware(req: NextRequest) {
   const url = req.nextUrl;
-
-  // Get hostname of request (e.g. school.edutrac.com, school.localhost:3000)
-  let hostname = req.headers
-    .get("host")!
-    .replace(".localhost:3000", `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`);
-
-  // special case for Vercel preview deployment URLs
-  if (
-    hostname.includes("---") &&
-    hostname.endsWith(`.${process.env.NEXT_PUBLIC_VERCEL_DEPLOYMENT_SUFFIX}`)
-  ) {
-    hostname = `${hostname.split("---")[0]}.${
-      process.env.NEXT_PUBLIC_ROOT_DOMAIN
-    }`;
-  }
-
+  let hostname = req.headers.get("host")!;
+  
   const searchParams = req.nextUrl.searchParams.toString();
-  // Get the pathname of the request (e.g. /, /about, /students/first-student)
-  const path = `${url.pathname}${
-    searchParams.length > 0 ? `?${searchParams}` : ""
-  }`;
+  const path = `${url.pathname}${searchParams.length > 0 ? `?${searchParams}` : ""}`;
 
   // Log for debugging
   console.log("Middleware processing - Hostname:", hostname, "Path:", path);
 
-  // rewrites for app dashboard pages - handles both app.edutrac.com and app.localhost:3000
-  if (hostname === `app.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}` || hostname === "app.localhost:3000") {
-    const session = await getToken({ req });
-    // redirect user to login if they have not login and they are not navigating to either lgin or register page
-    if (!session && !path.startsWith('/login') && !path.startsWith('/register')) {
-      return NextResponse.redirect(new URL("/login", req.url));
-      // redirect to dashboard if they have login and wants to nagivate to lgoin/register page
-    } else if (session && (path === '/login' || path === '/register')) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
+  // Handle local development subdomain routing
+  if (hostname.includes("localhost:3000")) {
+    hostname = hostname.replace(".localhost:3000", `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`);
     
-    // Modify the rewrite path to use the correct app route
-    const newPath = path === '/dashboard' ? '/app/' : `/app${path}`;
-    console.log("App dashboard route - rewriting to:", newPath);
-    return NextResponse.rewrite(new URL(newPath, req.url));
+    // App dashboard for local development
+    if (hostname === `app.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}` || hostname === "app.localhost:3000") {
+      const session = await getToken({ req });
+      
+      if (!session && !path.startsWith('/login') && !path.startsWith('/register')) {
+        return NextResponse.redirect(new URL("/login", req.url));
+      } else if (session && (path === '/login' || path === '/register')) {
+        return NextResponse.redirect(new URL("/dashboard", req.url));
+      }
+      
+      const newPath = path === '/dashboard' ? '/app/' : `/app${path}`;
+      console.log("App dashboard route - rewriting to:", newPath);
+      return NextResponse.rewrite(new URL(newPath, req.url));
+    }
+
+    // Root domain for local development
+    if (hostname === process.env.NEXT_PUBLIC_ROOT_DOMAIN || hostname === "localhost:3000") {
+      console.log("Root domain - rewriting to:", `/home${path === "/" ? "" : path}`);
+      return NextResponse.rewrite(new URL(`/home${path === "/" ? "" : path}`, req.url));
+    }
+
+    // School subdomains for local development
+    const subdomain = hostname.split('.')[0];
+    if (subdomain !== 'app') {
+      console.log("School domain - rewriting to:", `/${subdomain}${path}`);
+      return NextResponse.rewrite(new URL(`/${subdomain}${path}`, req.url));
+    }
   }
 
-  // Special case for root domain - this fixes the home page issue
-  if (
-    hostname === process.env.NEXT_PUBLIC_ROOT_DOMAIN ||
-    hostname === "localhost:3000" ||
-    hostname === "edutrac.com"
-  ) {
-    console.log("Root domain - rewriting to:", `/home${path === "/" ? "" : path}`);
-    return NextResponse.rewrite(new URL(`/home${path === "/" ? "" : path}`, req.url));
+  // Handle Vercel deployment (single domain with path-based routing)
+  if (hostname.endsWith(".vercel.app")) {
+    // App dashboard routes - use path-based routing for Vercel
+    if (path.startsWith('/app') || path.startsWith('/dashboard') || 
+        path.startsWith('/login') || path.startsWith('/register')) {
+      
+      const session = await getToken({ req });
+      
+      // Redirect to login if not authenticated and not on auth pages
+      if (!session && !path.startsWith('/login') && !path.startsWith('/register')) {
+        console.log("App dashboard - redirecting to login");
+        return NextResponse.redirect(new URL("/login", req.url));
+      } 
+      // Redirect to dashboard if authenticated and on auth pages
+      else if (session && (path === '/login' || path === '/register')) {
+        console.log("App dashboard - redirecting to dashboard");
+        return NextResponse.redirect(new URL("/dashboard", req.url));
+      }
+      
+      // Handle dashboard path
+      if (path.startsWith('/dashboard')) {
+        const newPath = path === '/dashboard' ? '/app/' : path.replace('/dashboard', '/app');
+        console.log("Dashboard path - rewriting to:", newPath);
+        return NextResponse.rewrite(new URL(newPath, req.url));
+      }
+      
+      // App paths and auth pages pass through
+      console.log("App/Auth path - keeping as:", path);
+      return NextResponse.next();
+    }
+
+    // Root domain routes
+    if (path === "/" || path.startsWith("/home")) {
+      const homePath = path === "/" ? "/home" : path;
+      console.log("Root domain - rewriting to:", homePath);
+      return NextResponse.rewrite(new URL(homePath, req.url));
+    }
+
+    // School routes (for testing with paths like /testschool)
+    const pathSegments = path.split('/').filter(Boolean);
+    if (pathSegments.length > 0) {
+      const firstSegment = pathSegments[0];
+      
+      // Skip known routes
+      if (!['app', 'home', 'api', 'login', 'register', 'dashboard', '_next', '_static'].includes(firstSegment)) {
+        console.log("School path - rewriting to:", `/${firstSegment}${path.substring(firstSegment.length + 1)}`);
+        return NextResponse.rewrite(new URL(path, req.url));
+      }
+    }
   }
 
-  // For subdomains like school.edutrac.com or school.localhost:3000 - rewrite to domain route
-  const subdomain = hostname.split('.')[0];
-  console.log("School domain - rewriting to:", `/${subdomain}${path}`);
-  return NextResponse.rewrite(new URL(`/${subdomain}${path}`, req.url));
+  // Default fallback
+  console.log("Middleware - continuing with default behavior");
+  return NextResponse.next();
 }
