@@ -132,7 +132,11 @@ export function calculateClassStatistics(scores: number[]) {
     };
   }
   
-  const validScores = scores.filter(score => !isNaN(score));
+  const validScores = scores.filter(score => 
+    score != null && 
+    !isNaN(score) && 
+    typeof score === 'number'
+  );
   
   if (validScores.length === 0) {
     return {

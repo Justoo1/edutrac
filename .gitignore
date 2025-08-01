@@ -15,6 +15,7 @@
 
 # production
 /build
+/__tests__
 
 # misc
 .DS_Store

@@ -2,8 +2,10 @@ import "@/styles/globals.css";
 import { cal, inter } from "@/styles/fonts";
 import { Analytics } from "@vercel/analytics/react";
 import { Providers } from "./providers";
-import { Metadata } from "next";
+import type Metadata from "next";
 import { cn } from "@/lib/utils";
+import { OfflineNotification, OfflineStatusIndicator } from "@/components/offline";
+import '@/lib/offline/init';
 
 const title =
   "Platforms Starter Kit – The all-in-one starter kit for building multi-tenant applications.";
@@ -40,6 +42,9 @@ export default function RootLayout({
       <body className={cn([cal.variable, inter.variable, "bg-gradient-to-tr from-blue-950 to-blue-900"])}>
         <Providers>
           {children}
+
+          <OfflineStatusIndicator className="fixed top-4 right-4 z-50" showDetails />
+          <OfflineNotification />
           <Analytics />
         </Providers>
       </body>

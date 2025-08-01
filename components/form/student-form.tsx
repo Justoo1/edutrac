@@ -7,6 +7,7 @@ import * as z from "zod";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
+
 import {
   Form,
   FormControl,
@@ -31,6 +32,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { DynamicJsonForm } from "./dynamic-json-form";
+import { createStudentOffline } from '@/lib/offline/offline-actions';
 
 // Schema for validation
 const studentSchema = z.object({
@@ -132,42 +134,33 @@ export function StudentForm({ initialData, schoolId, onSuccess }: StudentFormPro
     }
   }, [dateOfBirth]);
 
-  async function onSubmit(data: StudentFormValues) {
+  const onSubmit = async (data: StudentFormValues) => {
     setIsSubmitting(true);
-    
     try {
-      // API endpoint depends on whether we're creating or updating
-      const endpoint = initialData?.studentId ? `/api/students/${initialData.studentId}` : "/api/students";
+      const result = await createStudentOffline(schoolId, data);
       
-      const response = await fetch(endpoint, {
-        method: initialData?.studentId ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save student data");
-      }
-      
-      toast.success(`Student ${initialData?.studentId ? "updated" : "created"} successfully!`);
-      
-      // Call onSuccess callback if provided
-      if (onSuccess) {
-        onSuccess();
+      if (result.success) {
+        if (result.offline) {
+          toast.success(result.message, {
+            description: 'Data will sync when connection is restored',
+            action: {
+              label: 'View Status',
+              onClick: () => {/* Show offline status */}
+            }
+          });
+        } else {
+          toast.success(result.message);
+        }
+        // Reset form or redirect
       } else {
-        // Default navigation if no callback provided
-        router.push("/students");
-        router.refresh();
+        toast.error(result.error || 'Failed to create student');
       }
     } catch (error) {
-      console.error("Error saving student:", error);
-      toast.error("Something went wrong. Please try again.");
+      toast.error('An unexpected error occurred');
     } finally {
       setIsSubmitting(false);
     }
-  }
+  };
 
   // Grade level options
   const gradeLevels = [
